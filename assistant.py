@@ -4,8 +4,27 @@ import sqlparse
 import os
 from openai import OpenAI
 
-# Initialize LLM client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def _get_client():
+    # Lazy init so `import assistant` works without a key (tests, schema-only use).
+    # Raises a clear error only when an LLM call is actually attempted.
+    return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+
+def _clean_sql(sql):
+    sql = (sql or "").strip()
+    # Handle ```sql ... ``` and generic ``` ... ``` fences
+    if sql.startswith("```"):
+        lines = sql.splitlines()
+        lines = lines[1:]  # drop opening fence
+        # drop closing fence
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        sql = "\n".join(lines).strip()
+        # bare trailing fence without newline
+        if sql.endswith("```"):
+            sql = sql[:-3].strip()
+    return sql
 
 class SQLAssistant:
     def __init__(self, db_url):
@@ -20,10 +39,18 @@ class SQLAssistant:
         return schema
 
     def validate_sql(self, sql):
-        statements = sqlparse.parse(sql)
-        for stmt in statements:
-            if stmt.get_type() not in ['SELECT', 'UNKNOWN']:
-                return False, f"Unsupported statement type: {stmt.get_type()}"
+        if not sql or not sql.strip():
+            return False, "Empty query"
+        statements = [s for s in sqlparse.parse(sql) if str(s).strip()]
+        if len(statements) != 1:
+            return False, "Only single-statement queries are allowed"
+        stmt = statements[0]
+        stmt_type = stmt.get_type()
+        # sqlparse reports WITH ... SELECT as UNKNOWN; allow read-only CTEs explicitly.
+        if stmt_type == 'UNKNOWN' and str(stmt).lstrip().upper().startswith('WITH'):
+            return True, "Valid"
+        if stmt_type != 'SELECT':
+            return False, f"Unsupported statement type: {stmt_type}"
         return True, "Valid"
 
     def execute_query(self, sql, retries=1):
@@ -44,31 +71,20 @@ class SQLAssistant:
 
     def ask_for_correction(self, original_sql, error, retries):
         prompt = f"The SQL query generated was: {original_sql}. It resulted in the following error: {error}. Please provide a corrected SQL query that fixes the error. Only return the SQL string."
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}]
         )
         sql = response.choices[0].message.content.strip() if response.choices[0].message.content else ""
-        # Clean markdown code blocks if LLM returns them
-        if sql.startswith("```sql"):
-            sql = sql[6:]
-        if sql.endswith("```"):
-            sql = sql[:-3]
-        return self.execute_query(sql.strip(), retries=retries)
+        return self.execute_query(_clean_sql(sql), retries=retries)
 
     def ask(self, question):
         schema = self.get_schema()
         prompt = f"Given this schema: {schema}, generate a valid SQL query to answer: {question}. Only return the SQL string."
         
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}]
         )
         sql = response.choices[0].message.content.strip() if response.choices[0].message.content else ""
-        # Clean markdown code blocks if LLM returns them
-        if sql.startswith("```sql"):
-            sql = sql[6:]
-        if sql.endswith("```"):
-            sql = sql[:-3]
-        
-        return self.execute_query(sql.strip())
+        return self.execute_query(_clean_sql(sql))
