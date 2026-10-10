@@ -27,8 +27,18 @@ def _clean_sql(sql):
     return sql
 
 class SQLAssistant:
-    def __init__(self, db_url):
-        self.engine = create_engine(db_url)
+    def __init__(self, db_url, max_rows=1000, timeout_s=30, max_sql_chars=20000):
+        self.max_rows = max_rows
+        self.timeout_s = timeout_s
+        self.max_sql_chars = max_sql_chars
+        # SQLite supports a busy/wait timeout via connect_args; other dialects
+        # need dialect-specific statement timeouts (future work, documented).
+        if db_url.startswith("sqlite"):
+            self.engine = create_engine(
+                db_url, connect_args={"timeout": timeout_s}
+            )
+        else:
+            self.engine = create_engine(db_url)
         self.inspector = inspect(self.engine)
 
     def get_schema(self):
@@ -54,14 +64,19 @@ class SQLAssistant:
         return True, "Valid"
 
     def execute_query(self, sql, retries=1):
+        if sql and len(sql) > self.max_sql_chars:
+            return {"error": f"Query exceeds {self.max_sql_chars} characters"}
         valid, msg = self.validate_sql(sql)
         if not valid:
             return {"error": msg}
         with self.engine.connect() as conn:
             try:
                 result = conn.execute(sqlalchemy.text(sql))
-                rows = result.fetchall()
-                return {"success": True, "rows": [dict(r._mapping) for r in rows]}
+                # Fetch one extra row to detect truncation without LIMIT rewriting.
+                raw = result.fetchmany(self.max_rows + 1)
+                truncated = len(raw) > self.max_rows
+                rows = [dict(r._mapping) for r in raw[:self.max_rows]]
+                return {"success": True, "rows": rows, "truncated": truncated}
             except exc.SQLAlchemyError as e:
                 if retries > 0:
                     return self.ask_for_correction(sql, str(e), retries - 1)
@@ -79,6 +94,8 @@ class SQLAssistant:
         return self.execute_query(_clean_sql(sql), retries=retries)
 
     def ask(self, question):
+        if question and len(question) > self.max_sql_chars:
+            return {"error": f"Question exceeds {self.max_sql_chars} characters"}
         schema = self.get_schema()
         prompt = f"Given this schema: {schema}, generate a valid SQL query to answer: {question}. Only return the SQL string."
         

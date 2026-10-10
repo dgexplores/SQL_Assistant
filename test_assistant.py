@@ -1,5 +1,5 @@
 import unittest
-from assistant import SQLAssistant
+from assistant import SQLAssistant, _clean_sql
 from sqlalchemy import create_engine, text
 
 class TestSQLAssistant(unittest.TestCase):
@@ -23,6 +23,42 @@ class TestSQLAssistant(unittest.TestCase):
     def test_malicious_query(self):
         is_valid, _ = self.assistant.validate_sql("DROP TABLE users")
         self.assertFalse(is_valid)
+
+    def test_validation_boundaries(self):
+        for bad in ["", "   ", "EXPLAIN SELECT 1",
+                    "SELECT 1; SELECT 2",
+                    "SELECT 1; DROP TABLE users",
+                    "DELETE FROM users"]:
+            with self.subTest(sql=bad):
+                self.assertFalse(self.assistant.validate_sql(bad)[0])
+
+    def test_with_cte_allowed(self):
+        is_valid, _ = self.assistant.validate_sql(
+            "WITH x AS (SELECT 1 AS n) SELECT * FROM x")
+        self.assertTrue(is_valid)
+
+    def test_clean_sql_fences(self):
+        self.assertEqual(
+            _clean_sql("```sql\nSELECT 1\n```"), "SELECT 1")
+        self.assertEqual(
+            _clean_sql("```\nSELECT 1\n```"), "SELECT 1")
+
+    def test_max_rows_truncation(self):
+        assistant = SQLAssistant(self.db_url, max_rows=2)
+        with assistant.engine.connect() as conn:
+            conn.execute(text("CREATE TABLE t (id INTEGER)"))
+            conn.execute(text("INSERT INTO t VALUES (1), (2), (3)"))
+            conn.commit()
+        out = assistant.execute_query("SELECT * FROM t ORDER BY id",
+                                      retries=0)
+        self.assertTrue(out.get("success"))
+        self.assertEqual(len(out["rows"]), 2)
+        self.assertTrue(out["truncated"])
+
+    def test_oversize_query_rejected(self):
+        assistant = SQLAssistant(self.db_url, max_sql_chars=10)
+        out = assistant.execute_query("SELECT 123456789", retries=0)
+        self.assertIn("error", out)
 
 if __name__ == '__main__':
     unittest.main()
