@@ -1,4 +1,5 @@
 import unittest
+import os
 from assistant import SQLAssistant, _clean_sql
 from sqlalchemy import create_engine, text
 
@@ -59,6 +60,35 @@ class TestSQLAssistant(unittest.TestCase):
         assistant = SQLAssistant(self.db_url, max_sql_chars=10)
         out = assistant.execute_query("SELECT 123456789", retries=0)
         self.assertIn("error", out)
+
+    def test_data_modifying_cte_rejected(self):
+        # sqlparse types these as SELECT at the top level; the token denylist
+        # is what actually stops them.
+        for sql in [
+            "WITH x AS (DELETE FROM users RETURNING *) SELECT * FROM x",
+            "WITH x AS (INSERT INTO t VALUES (1)) SELECT * FROM x",
+            "WITH x AS (UPDATE users SET name='a') SELECT * FROM x",
+        ]:
+            with self.subTest(sql=sql):
+                is_valid, _ = self.assistant.validate_sql(sql)
+                self.assertFalse(is_valid)
+
+    def test_read_only_cte_still_allowed(self):
+        for sql in [
+            "WITH x AS (SELECT 1 AS n) SELECT * FROM x",
+            "WITH RECURSIVE r AS (SELECT 1) SELECT * FROM r",
+            "SELECT * FROM users WHERE id IN (SELECT 1)",
+        ]:
+            with self.subTest(sql=sql):
+                is_valid, _ = self.assistant.validate_sql(sql)
+                self.assertTrue(is_valid)
+
+    def test_llm_failure_returns_error_shape(self):
+        # No API key in test env: LLM path must degrade to {"error": ...}
+        os.environ.pop("OPENAI_API_KEY", None)
+        out = self.assistant.ask("how many users")
+        self.assertIn("error", out)
+        self.assertNotIn("rows", out)
 
 if __name__ == '__main__':
     unittest.main()
