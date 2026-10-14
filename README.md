@@ -88,6 +88,19 @@ python -m pytest test_assistant.py -v
 Tests run without an API key — the LLM client is created lazily and only on an
 actual LLM call.
 
+## Landing page
+
+`docs/index.html` is a static landing page for this project: self-hosted Geist
+fonts, Tailwind v4 compiled to `docs/assets/tailwind.css`, no JS framework, and
+a working in-browser port of `validate_sql` as the hero demo. Serve locally
+with `python3 -m http.server --directory docs`, or enable GitHub Pages from
+`/docs`. After adding new Tailwind classes, recompile from the repo root
+(requires `tailwindcss` and `@tailwindcss/cli`):
+
+```bash
+npx tailwindcss -i docs/tailwind.input.css -o docs/assets/tailwind.css --minify
+```
+
 ## Known limitations
 
 1. `sqlparse` denylist can reject legitimate dialect syntax; tune

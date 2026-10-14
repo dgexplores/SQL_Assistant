@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL Assistant: natural language to SQL, safely</title>
+<meta name="description" content="SQL Assistant turns questions into read-only SQL. Every statement is parsed and validated before it touches your database.">
+<link rel="stylesheet" href="./assets/tailwind.css">
+<style>
+@font-face {
+  font-family: "Geist";
+  src: url("./fonts/geist-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("./fonts/geist-mono-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --canvas: #fafafa;
+  --panel: #ffffff;
+  --ink: #1c1c1e;
+  --muted: #525257;
+  --hairline: #e4e4e7;
+  --accent: #0f766e;
+  --on-accent: #ffffff;
+  --ok: #0f766e;
+  --bad: #b91c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #0a0a0c;
+    --panel: #121214;
+    --ink: #f4f4f5;
+    --muted: #a1a1aa;
+    --hairline: #26262b;
+    --accent: #6ee7b7;
+    --on-accent: #0a0a0c;
+    --ok: #6ee7b7;
+    --bad: #fca5a5;
+  }
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+/* Radius lock: 12px everywhere. One scale, no exceptions. */
+.r { border-radius: 12px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes hero-in {
+    from { opacity: 0; translate: 0 18px; }
+    to { opacity: 1; translate: 0 0; }
+  }
+  .hero-in { animation: hero-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .hero-in-late { animation: hero-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both; }
+
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+    @keyframes reveal-in {
+      from { opacity: 0; translate: 0 22px; }
+      to { opacity: 1; translate: 0 0; }
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+.push { transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+.push:hover { transform: translateY(-1px); }
+.push:active { transform: scale(0.98); }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+</style>
+</head>
+<body class="bg-canvas text-ink font-sans antialiased">
+
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:bg-panel focus:px-4 focus:py-2 r">Skip to content</a>
+
+<header class="sticky top-0 z-40 border-b border-hairline" style="background: color-mix(in srgb, var(--canvas) 88%, transparent); backdrop-filter: blur(12px);">
+  <nav class="mx-auto flex h-16 max-w-6xl items-center justify-between px-5" aria-label="Primary">
+    <a href="#top" class="text-[15px] font-semibold tracking-tight">SQL Assistant</a>
+    <div class="flex items-center gap-6 text-sm">
+      <a href="#validation" class="text-muted push">Validation</a>
+      <a href="#configuration" class="text-muted push">Configuration</a>
+      <a href="https://github.com/dgexplores/SQL_Assistant" target="_blank" rel="noopener"
+         class="push r flex items-center gap-2 border border-hairline bg-panel px-3.5 py-2 font-medium">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.75 2.69 1.25 3.35.95.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.67 0-1.25.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.17a10.9 10.9 0 0 1 5.74 0c2.19-1.48 3.15-1.17 3.15-1.17.62 1.58.23 2.75.11 3.04.74.81 1.18 1.84 1.18 3.09 0 4.4-2.69 5.37-5.25 5.66.41.36.78 1.06.78 2.14 0 1.55-.01 2.79-.01 3.17 0 .31.21.68.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+  </nav>
+</header>
+
+<main id="main">
+
+<!-- HERO: asymmetric split. Left copy, right live validator. -->
+<section id="top" class="mx-auto grid min-h-[100dvh] max-w-6xl items-center gap-12 px-5 pt-20 pb-16 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
+  <div class="hero-in">
+    <p class="text-[11px] font-medium uppercase tracking-[0.18em] text-muted">Open source Python library</p>
+    <h1 class="mt-5 text-4xl font-semibold leading-[1.05] tracking-tighter md:text-5xl lg:text-6xl">
+      Natural language to SQL, safely.
+    </h1>
+    <p class="mt-5 max-w-[52ch] text-lg leading-relaxed text-muted">
+      Questions in, read-only SQL out. Every statement is parsed and validated before it touches your database.
+    </p>
+    <div class="mt-8 flex flex-wrap items-center gap-4">
+      <a href="https://github.com/dgexplores/SQL_Assistant" target="_blank" rel="noopener"
+         class="push r bg-accent px-5 py-3 text-[15px] font-semibold text-on-accent">View on GitHub</a>
+      <a href="#validation" class="push r border border-hairline bg-panel px-5 py-3 text-[15px] font-medium">See it validate</a>
+    </div>
+  </div>
+
+  <div class="hero-in-late">
+    <form id="validator" class="r border border-hairline bg-panel p-5 shadow-[0_1px_0_var(--hairline)]">
+      <label for="sql-input" class="text-sm font-medium">Try the validator</label>
+      <textarea id="sql-input" rows="4" spellcheck="false"
+        placeholder="SELECT name FROM users LIMIT 5"
+        class="mt-2 w-full resize-y rounded-[10px] border border-hairline bg-canvas px-3 py-2.5 font-mono text-sm leading-relaxed placeholder:text-muted"></textarea>
+      <div class="mt-3 flex flex-wrap gap-2" aria-label="Sample queries">
+        <button type="button" data-sample="SELECT name FROM users LIMIT 5" class="chip">valid select</button>
+        <button type="button" data-sample="WITH x AS (SELECT 1) SELECT * FROM x" class="chip">valid cte</button>
+        <button type="button" data-sample="WITH x AS (DELETE FROM users RETURNING *) SELECT * FROM x" class="chip">cte delete trap</button>
+      </div>
+      <button type="submit" class="push r mt-4 w-full bg-accent py-2.5 text-sm font-semibold text-on-accent">Validate</button>
+      <div id="verdict" aria-live="polite" class="mt-4 min-h-[3.25rem]"></div>
+      <p class="mt-3 text-xs leading-relaxed text-muted">
+        Runs the same rules as <code class="font-mono">assistant.py</code>: single statement, SELECT or WITH only, no write keywords anywhere.
+      </p>
+    </form>
+  </div>
+</section>
+
+<!-- VALIDATION: grouped truth table. -->
+<section id="validation" class="border-t border-hairline">
+  <div class="mx-auto max-w-6xl px-5 py-24">
+    <div class="reveal">
+      <h2 class="text-3xl font-semibold tracking-tighter md:text-4xl">Every failure mode, measured.</h2>
+      <p class="mt-4 max-w-[65ch] leading-relaxed text-muted">
+        The validator was run against hostile and legitimate inputs. Results below are real, from the test suite, not marketing.
+      </p>
+    </div>
+
+    <div class="reveal mt-12 grid gap-10 lg:grid-cols-2">
+      <div>
+        <p class="text-sm font-semibold text-ok">Allowed</p>
+        <ul class="mt-4 divide-y divide-hairline border-y border-hairline">
+          <li class="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between">
+            <code class="font-mono text-sm">SELECT name FROM users</code>
+            <span class="font-mono text-xs text-muted">plain read</span>
+          </li>
+          <li class="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between">
+            <code class="font-mono text-sm">WITH x AS (SELECT 1) SELECT * FROM x</code>
+            <span class="font-mono text-xs text-muted">read-only CTE</span>
+          </li>
+          <li class="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between">
+            <code class="font-mono text-sm">SELECT * FROM t WHERE id IN (SELECT 1)</code>
+            <span class="font-mono text-xs text-muted">subquery</span>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <p class="text-sm font-semibold text-bad">Rejected</p>
+        <ul class="mt-4 divide-y divide-hairline border-y border-hairline">
+          <li class="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between">
+            <code class="font-mono text-sm">WITH x AS (DELETE FROM users RETURNING *) SELECT * FROM x</code>
+            <span class="font-mono text-xs text-muted">typed SELECT, still caught</span>
+          </li>
+          <li class="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between">
+            <code class="font-mono text-sm">SELECT 1; DROP TABLE users</code>
+            <span class="font-mono text-xs text-muted">two statements</span>
+          </li>
+          <li class="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between">
+            <code class="font-mono text-sm">EXPLAIN SELECT 1</code>
+            <span class="font-mono text-xs text-muted">not SELECT</span>
+          </li>
+          <li class="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between">
+            <code class="font-mono text-sm">DROP TABLE users</code>
+            <span class="font-mono text-xs text-muted">schema write</span>
+          </li>
+          <li class="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between">
+            <code class="font-mono text-sm">""</code>
+            <span class="font-mono text-xs text-muted">empty query</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="reveal mt-8 max-w-[65ch] text-sm leading-relaxed text-muted">
+      The first rejected row is the one that matters. <code class="font-mono">sqlparse</code> types that data-modifying CTE as
+      SELECT, so a top-level type check alone would delete every row. A token-level keyword walk stops it.
+      Covered by <code class="font-mono">test_data_modifying_cte_rejected</code>.
+    </p>
+  </div>
+</section>
+
+<!-- TRADEOFF: full-width statement. -->
+<section class="border-t border-hairline bg-panel">
+  <div class="reveal mx-auto max-w-6xl px-5 py-24">
+    <h2 class="max-w-[22ch] text-3xl font-semibold leading-[1.1] tracking-tighter md:text-4xl">
+      A prompt is not a security boundary. A parser is.
+    </h2>
+    <div class="mt-10 grid gap-10 md:grid-cols-2">
+      <div>
+        <p class="text-sm font-semibold">Chosen</p>
+        <p class="mt-3 leading-relaxed text-muted">
+          Static analysis with <code class="font-mono">sqlparse</code>. The same string always gets the same verdict, and a
+          reviewer's objection is answered by pointing at code rather than re-running a model.
+        </p>
+      </div>
+      <div>
+        <p class="text-sm font-semibold">Cost, stated honestly</p>
+        <p class="mt-3 leading-relaxed text-muted">
+          <code class="font-mono">sqlparse</code> is not a full SQL parser. Some dialect syntax gets rejected, and the
+          denylist does not replace a read-only database role. Both guards are needed.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- image band -->
+<figure class="reveal mx-auto max-w-6xl px-5 py-16">
+  <img src="https://picsum.photos/seed/sql-terminal-desk/1200/480?grayscale"
+       alt="Decorative monochrome photograph of a workstation"
+       loading="lazy" width="1200" height="480"
+       class="r w-full object-cover">
+  <figcaption class="mt-3 text-sm text-muted">Local execution. No server, no telemetry.</figcaption>
+</figure>
+
+<!-- ARCHITECTURE: definition rows. -->
+<section class="border-t border-hairline">
+  <div class="reveal mx-auto max-w-6xl px-5 py-24">
+    <h2 class="text-3xl font-semibold tracking-tighter md:text-4xl">Four layers, one failure shape.</h2>
+    <dl class="mt-10 divide-y divide-hairline border-y border-hairline">
+      <div class="grid gap-1 py-5 sm:grid-cols-[1fr_2fr] sm:gap-6">
+        <dt class="font-mono text-sm">get_schema()</dt>
+        <dd class="text-sm leading-relaxed text-muted">Introspects live tables and columns so the prompt reflects the real database.</dd>
+      </div>
+      <div class="grid gap-1 py-5 sm:grid-cols-[1fr_2fr] sm:gap-6">
+        <dt class="font-mono text-sm">validate_sql()</dt>
+        <dd class="text-sm leading-relaxed text-muted">Rejects empty, multi-statement, non-SELECT, and write-keyword queries before execution.</dd>
+      </div>
+      <div class="grid gap-1 py-5 sm:grid-cols-[1fr_2fr] sm:gap-6">
+        <dt class="font-mono text-sm">execute_query()</dt>
+        <dd class="text-sm leading-relaxed text-muted">Bounds input size, executes, caps rows, and reports truncation instead of dropping it silently.</dd>
+      </div>
+      <div class="grid gap-1 py-5 sm:grid-cols-[1fr_2fr] sm:gap-6">
+        <dt class="font-mono text-sm">_generate_and_run()</dt>
+        <dd class="text-sm leading-relaxed text-muted">Single LLM path. Model failures become <code class="font-mono">{"error": ...}</code> too, so callers handle one shape.</dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<!-- CONFIGURATION: 5 parameter tiles. -->
+<section id="configuration" class="border-t border-hairline bg-panel">
+  <div class="reveal mx-auto max-w-6xl px-5 py-24">
+    <p class="text-[11px] font-medium uppercase tracking-[0.18em] text-muted">Configuration</p>
+    <h2 class="mt-4 text-3xl font-semibold tracking-tighter md:text-4xl">Five knobs, sane defaults.</h2>
+    <div class="mt-10 grid gap-4 sm:grid-cols-2">
+      <div class="r border border-hairline bg-canvas p-5">
+        <p class="font-mono text-sm">max_rows</p>
+        <p class="mt-2 text-2xl font-semibold tracking-tight">1000</p>
+        <p class="mt-2 text-sm leading-relaxed text-muted">Result cap. Larger results set <code class="font-mono">truncated: true</code>.</p>
+      </div>
+      <div class="r border border-hairline bg-canvas p-5">
+        <p class="font-mono text-sm">timeout_s</p>
+        <p class="mt-2 text-2xl font-semibold tracking-tight">30</p>
+        <p class="mt-2 text-sm leading-relaxed text-muted">SQLite busy timeout. Postgres needs a dialect-specific <code class="font-mono">statement_timeout</code>.</p>
+      </div>
+      <div class="r border border-hairline bg-canvas p-5">
+        <p class="font-mono text-sm">max_sql_chars</p>
+        <p class="mt-2 text-2xl font-semibold tracking-tight">20000</p>
+        <p class="mt-2 text-sm leading-relaxed text-muted">Rejects oversized SQL and oversized questions before any database or LLM call.</p>
+      </div>
+      <div class="r border border-hairline bg-canvas p-5">
+        <p class="font-mono text-sm">model</p>
+        <p class="mt-2 text-2xl font-semibold tracking-tight">gpt-4o-mini</p>
+        <p class="mt-2 text-sm leading-relaxed text-muted">Used for generation and for one self-correction attempt on failure.</p>
+      </div>
+      <div class="r border border-hairline bg-canvas p-5 sm:col-span-2">
+        <p class="font-mono text-sm">llm_timeout_s</p>
+        <p class="mt-2 text-2xl font-semibold tracking-tight">30</p>
+        <p class="mt-2 text-sm leading-relaxed text-muted">Bounds the OpenAI request so a hung model call cannot stall the caller.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTRACT: code + image split. -->
+<section class="border-t border-hairline">
+  <div class="reveal mx-auto max-w-6xl px-5 py-24">
+    <h2 class="text-3xl font-semibold tracking-tighter md:text-4xl">Every method returns a dict.</h2>
+    <p class="mt-4 max-w-[65ch] leading-relaxed text-muted">
+      Expected failures never raise. Callers branch on one key.
+    </p>
+    <div class="mt-10 grid items-start gap-8 lg:grid-cols-2">
+      <pre class="r overflow-x-auto border border-hairline bg-panel p-5 font-mono text-sm leading-relaxed"><code>{<span class="text-muted">"success"</span>: true, <span class="text-muted">"rows"</span>: [...], <span class="text-muted">"truncated"</span>: false}
+{<span class="text-muted">"error"</span>: <span class="text-accent">"Unsupported statement type: DROP"</span>}</code></pre>
+      <figure>
+        <img src="https://picsum.photos/seed/sql-review-notes/800/520?grayscale"
+             alt="Decorative monochrome photograph of notes on a desk"
+             loading="lazy" width="800" height="520"
+             class="r w-full object-cover">
+        <figcaption class="mt-3 text-sm text-muted">Reviewable by reading the source, not by trusting the model.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- SETUP: three verb steps, stacked. -->
+<section class="border-t border-hairline bg-panel">
+  <div class="reveal mx-auto max-w-6xl px-5 py-24">
+    <h2 class="text-3xl font-semibold tracking-tighter md:text-4xl">Running takes a minute.</h2>
+    <ol class="mt-10 grid gap-4 md:grid-cols-3">
+      <li class="r border border-hairline bg-canvas p-5">
+        <p class="text-sm font-semibold">Install</p>
+        <pre class="mt-3 overflow-x-auto rounded-[8px] border border-hairline bg-panel p-3 font-mono text-xs leading-relaxed"><code>pip install -r requirements.txt</code></pre>
+      </li>
+      <li class="r border border-hairline bg-canvas p-5">
+        <p class="text-sm font-semibold">Configure</p>
+        <pre class="mt-3 overflow-x-auto rounded-[8px] border border-hairline bg-panel p-3 font-mono text-xs leading-relaxed"><code>cp .env.example .env
+export OPENAI_API_KEY=sk-...</code></pre>
+      </li>
+      <li class="r border border-hairline bg-canvas p-5">
+        <p class="text-sm font-semibold">Run</p>
+        <pre class="mt-3 overflow-x-auto rounded-[8px] border border-hairline bg-panel p-3 font-mono text-xs leading-relaxed"><code>python -m pytest test_assistant.py -v
+<span class="text-muted"># 11 passed, 12 subtests, no key needed</span></code></pre>
+      </li>
+    </ol>
+    <p class="mt-8 max-w-[65ch] text-sm leading-relaxed text-muted">
+      Tests run without an API key. The LLM client is created lazily, only when an actual LLM call happens.
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer class="border-t border-hairline">
+  <div class="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-5 py-12 sm:flex-row sm:items-center">
+    <div>
+      <p class="text-sm font-semibold">SQL Assistant</p>
+      <p class="mt-1 text-sm text-muted">Built with Python, SQLAlchemy, and sqlparse.</p>
+    </div>
+    <a href="https://github.com/dgexplores/SQL_Assistant" target="_blank" rel="noopener"
+       class="push r border border-hairline bg-panel px-4 py-2.5 text-sm font-medium">View on GitHub</a>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  // Simplified port of assistant.py validate_sql. sqlparse remains the
+  // authority in production; this widget demonstrates the same rules.
+  var WRITE = new Set(["INSERT","UPDATE","DELETE","MERGE","UPSERT","REPLACE",
+                       "DROP","CREATE","ALTER","TRUNCATE","GRANT","REVOKE","VACUUM"]);
+
+  function stripFences(s) {
+    return (s || "").replace(/^\s*```(?:sql)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+  }
+
+  function splitStatements(sql) {
+    var out = [], cur = "", quote = null;
+    for (var i = 0; i < sql.length; i++) {
+      var c = sql[i];
+      if (quote) { cur += c; if (c === quote) quote = null; continue; }
+      if (c === "'" || c === '"') { quote = c; cur += c; continue; }
+      if (c === ";") { out.push(cur); cur = ""; continue; }
+      cur += c;
+    }
+    out.push(cur);
+    return out.map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+
+  function validate(sql) {
+    sql = stripFences(sql);
+    if (!sql) return [false, "Empty query"];
+    var stmts = splitStatements(sql);
+    if (stmts.length > 1) return [false, "Multiple statements: " + stmts.length + " found"];
+    var first = stmts[0].split(/\s+/)[0].toUpperCase();
+    if (first !== "SELECT" && first !== "WITH") return [false, "Unsupported statement type: " + first];
+    var bare = stmts[0].replace(/'(?:[^'\\]|\\.)*'/g, "").replace(/"(?:[^"\\]|\\.)*"/g, "");
+    var words = bare.match(/[A-Za-z_][A-Za-z0-9_]*/g) || [];
+    for (var i = 0; i < words.length; i++) {
+      var u = words[i].toUpperCase();
+      if (WRITE.has(u)) return [false, "Unsupported keyword in query: " + u];
+    }
+    return [true, "Valid"];
+  }
+
+  var form = document.getElementById("validator");
+  var input = document.getElementById("sql-input");
+  var verdict = document.getElementById("verdict");
+
+  function render(ok, msg) {
+    verdict.textContent = "";
+    var box = document.createElement("div");
+    box.className = "r flex items-start gap-3 border px-4 py-3";
+    var badge = document.createElement("span");
+    badge.className = "mt-px inline-block rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide";
+    if (ok) {
+      box.style.borderColor = "var(--ok)";
+      badge.style.background = "var(--ok)";
+      badge.style.color = "var(--on-accent)";
+      badge.textContent = "Allowed";
+    } else {
+      box.style.borderColor = "var(--bad)";
+      badge.style.background = "var(--bad)";
+      badge.style.color = "#ffffff";
+      badge.textContent = "Rejected";
+    }
+    var reason = document.createElement("span");
+    reason.className = "font-mono text-sm";
+    reason.textContent = msg;
+    box.appendChild(badge);
+    box.appendChild(reason);
+    verdict.appendChild(box);
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var result = validate(input.value);
+    render(result[0], result[1]);
+  });
+
+  document.querySelectorAll(".chip").forEach(function (chip) {
+    var style = chip.style;
+    style.border = "1px solid var(--hairline)";
+    style.background = "var(--canvas)";
+    style.borderRadius = "999px";
+    style.padding = "4px 10px";
+    style.fontFamily = "var(--font-mono)";
+    style.fontSize = "11px";
+    style.color = "var(--muted)";
+    style.cursor = "pointer";
+    chip.addEventListener("click", function () {
+      input.value = chip.getAttribute("data-sample");
+      input.focus();
+      var result = validate(input.value);
+      render(result[0], result[1]);
+    });
+  });
+})();
+</script>
+</body>
+</html>
