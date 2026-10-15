@@ -64,7 +64,7 @@ guards are needed — see [SECURITY_TRADEOFFS.md](SECURITY_TRADEOFFS.md).
 
 - `max_rows` — result cap. Results report `truncated: true` when more rows exist.
 - `max_sql_chars` — rejects oversized SQL *and* oversized questions before any DB or LLM call.
-- `timeout_s` — SQLite busy timeout. Postgres/MySQL need a dialect-specific `statement_timeout`; not wired yet.
+- `timeout_s` — SQLite busy timeout; Postgres `statement_timeout` via libpq `options` (psycopg2/psycopg). MySQL has no connect-level equivalent.
 - `model`, `llm_timeout_s` — LLM call bound.
 
 ## Contract
@@ -92,21 +92,33 @@ actual LLM call.
 
 `docs/index.html` is a static landing page for this project: self-hosted Geist
 fonts, Tailwind v4 compiled to `docs/assets/tailwind.css`, no JS framework, and
-a working in-browser port of `validate_sql` as the hero demo. Serve locally
-with `python3 -m http.server --directory docs`, or enable GitHub Pages from
-`/docs`. After adding new Tailwind classes, recompile from the repo root
+a working in-browser port of `validate_sql` as the hero demo. Photos are
+self-hosted CC-licensed images with creator credits in the captions. Live at
+https://dgexplores.github.io/SQL_Assistant/ via the `pages` workflow; serve
+locally with `python3 -m http.server --directory docs`. After adding new
+Tailwind classes, recompile from the repo root
 (requires `tailwindcss` and `@tailwindcss/cli`):
 
 ```bash
 npx tailwindcss -i docs/tailwind.input.css -o docs/assets/tailwind.css --minify
 ```
 
+## Accuracy eval
+
+`eval/` holds a five-question gold set over a seeded customers/orders database
+plus `run_eval.py`, which asks each question end-to-end and compares rows with
+an order-insensitive normalization (tolerates column order and aggregate
+labels). It needs `OPENAI_API_KEY` and is intentionally outside CI:
+
+```bash
+export OPENAI_API_KEY=sk-...
+python eval/run_eval.py
+```
+
 ## Known limitations
 
 1. `sqlparse` denylist can reject legitimate dialect syntax; tune
    `WRITE_KEYWORDS` for your target databases.
-2. `timeout_s` is SQLite-only. Postgres needs `SET statement_timeout`.
-3. Schema is truncated to column names — no types or foreign keys, which costs
+2. Schema is truncated to column names — no types or foreign keys, which costs
    accuracy on joins. Token cost grows linearly with table count.
-4. `inspect()` is captured in `__init__`; DDL after construction is invisible.
-5. One self-correction attempt, then the raw DB error is returned.
+3. One self-correction attempt, then the raw DB error is returned.

@@ -59,20 +59,24 @@ class SQLAssistant:
         self.max_sql_chars = max_sql_chars
         self.model = model
         self.llm_timeout_s = llm_timeout_s
-        # SQLite supports a busy/wait timeout via connect_args; other dialects
-        # need dialect-specific statement timeouts (future work, documented).
+        self.db_url = db_url
+        # Per-dialect execution guard. SQLite gets a busy/wait timeout;
+        # Postgres gets a statement_timeout via libpq options (covers the
+        # sync libpq drivers, psycopg2/psycopg). MySQL has no connect-level
+        # equivalent (it needs a MAX_EXECUTION_TIME hint per query).
+        connect_args = {}
         if db_url.startswith("sqlite"):
-            self.engine = create_engine(
-                db_url, connect_args={"timeout": timeout_s}
-            )
-        else:
-            self.engine = create_engine(db_url)
-        self.inspector = inspect(self.engine)
+            connect_args = {"timeout": timeout_s}
+        elif db_url.startswith("postgresql"):
+            connect_args = {"options": f"-c statement_timeout={int(timeout_s * 1000)}"}
+        self.engine = create_engine(db_url, connect_args=connect_args)
 
     def get_schema(self):
+        # Inspect fresh on every call: DDL issued after construction stays visible.
+        inspector = inspect(self.engine)
         schema = {}
-        for table_name in self.inspector.get_table_names():
-            columns = self.inspector.get_columns(table_name)
+        for table_name in inspector.get_table_names():
+            columns = inspector.get_columns(table_name)
             schema[table_name] = [col['name'] for col in columns]
         return schema
 

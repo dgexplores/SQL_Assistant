@@ -1,5 +1,7 @@
 import unittest
 import os
+import tempfile
+from unittest import mock
 from assistant import SQLAssistant, _clean_sql
 from sqlalchemy import create_engine, text
 
@@ -89,6 +91,34 @@ class TestSQLAssistant(unittest.TestCase):
         out = self.assistant.ask("how many users")
         self.assertIn("error", out)
         self.assertNotIn("rows", out)
+
+    def test_connect_args_per_dialect(self):
+        # create_engine is lazy (no connection), so Postgres branching is
+        # testable without a live server by observing the factory call.
+        cases = [
+            ("sqlite:///x.db", 5, {"timeout": 5}),
+            ("postgresql://u:p@h/db", 5, {"options": "-c statement_timeout=5000"}),
+            ("mysql://u:p@h/db", 5, {}),
+        ]
+        for url, timeout_s, want in cases:
+            with self.subTest(url=url):
+                with mock.patch("assistant.create_engine") as factory:
+                    SQLAssistant(url, timeout_s=timeout_s)
+                _, kwargs = factory.call_args
+                self.assertEqual(kwargs["connect_args"], want)
+
+    def test_schema_sees_later_ddl(self):
+        # Schema is inspected fresh: tables created after construction appear.
+        with tempfile.TemporaryDirectory() as tmp:
+            assistant = SQLAssistant(f"sqlite:///{tmp}/t.db")
+            with assistant.engine.connect() as conn:
+                conn.execute(text("CREATE TABLE t1 (id INTEGER)"))
+                conn.commit()
+            self.assertIn("t1", assistant.get_schema())
+            with assistant.engine.connect() as conn:
+                conn.execute(text("CREATE TABLE t2 (id INTEGER)"))
+                conn.commit()
+            self.assertIn("t2", assistant.get_schema())
 
 if __name__ == '__main__':
     unittest.main()

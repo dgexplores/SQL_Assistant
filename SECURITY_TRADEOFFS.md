@@ -44,7 +44,9 @@ Untrusted LLM output must not be able to exhaust memory or time:
 - `max_sql_chars` rejects oversized SQL and questions before any DB or LLM call.
 - `max_rows` caps rows returned (`fetchmany(max_rows + 1)`, reports `truncated`).
 - `llm_timeout_s` bounds the OpenAI call.
-- `timeout_s` sets the SQLite busy timeout.
+- `timeout_s` is enforced per dialect: SQLite busy timeout, Postgres
+  `statement_timeout` through libpq options. MySQL has no connect-level
+  equivalent and stays unbounded — use a read-only role and small `max_rows`.
 
 ### Layer 4 — Self-correction stays inside the same rules
 
