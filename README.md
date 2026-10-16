@@ -53,7 +53,7 @@ guards are needed — see [SECURITY_TRADEOFFS.md](SECURITY_TRADEOFFS.md).
 
 | Layer | Responsibility |
 | --- | --- |
-| `get_schema()` | Introspect tables → columns for the prompt |
+| `get_schema()` | Introspect tables, column types, and foreign keys for the prompt |
 | `validate_sql()` | Reject empty, multi-statement, non-SELECT, write-keyword queries |
 | `execute_query()` | Bound input size, execute, cap rows, return one failure shape |
 | `_generate_and_run()` | Single LLM call path; converts LLM failures to `{"error": ...}` |
@@ -127,6 +127,5 @@ capacity spike, one 429 free-tier daily quota exhaustion), not wrong SQL.
 
 1. `sqlparse` denylist can reject legitimate dialect syntax; tune
    `WRITE_KEYWORDS` for your target databases.
-2. Schema is truncated to column names — no types or foreign keys, which costs
-   accuracy on joins. Token cost grows linearly with table count.
+2. Token cost grows linearly with table count; very wide schemas bloat the prompt.
 3. One self-correction attempt, then the raw DB error is returned.

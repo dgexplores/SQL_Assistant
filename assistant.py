@@ -54,6 +54,23 @@ def _clean_sql(sql):
             sql = sql[:-3].strip()
     return sql
 
+
+def _format_schema(schema):
+    # One line per table: users(id: INTEGER, name: TEXT) [orders.user_id -> users.id]
+    lines = []
+    for table, info in schema.items():
+        cols = ", ".join(f"{c['name']}: {c['type']}" for c in info["columns"])
+        fks = "; ".join(
+            f"{table}.{','.join(fk['constrained_columns'])} -> "
+            f"{fk['referred_table']}.{','.join(fk['referred_columns'])}"
+            for fk in info["foreign_keys"]
+        )
+        line = f"{table}({cols})"
+        if fks:
+            line += f" [{fks}]"
+        lines.append(line)
+    return "\n".join(lines)
+
 class SQLAssistant:
     def __init__(self, db_url, max_rows=1000, timeout_s=30, max_sql_chars=20000,
                  model="gpt-4o-mini", llm_timeout_s=30, base_url=None):
@@ -77,11 +94,19 @@ class SQLAssistant:
 
     def get_schema(self):
         # Inspect fresh on every call: DDL issued after construction stays visible.
+        # Columns carry their types and tables their foreign keys, so the model
+        # can join correctly instead of guessing relationships from names.
         inspector = inspect(self.engine)
         schema = {}
         for table_name in inspector.get_table_names():
             columns = inspector.get_columns(table_name)
-            schema[table_name] = [col['name'] for col in columns]
+            schema[table_name] = {
+                "columns": [
+                    {"name": col["name"], "type": str(col["type"])}
+                    for col in columns
+                ],
+                "foreign_keys": inspector.get_foreign_keys(table_name),
+            }
         return schema
 
     def validate_sql(self, sql):
@@ -130,8 +155,8 @@ class SQLAssistant:
     def ask(self, question):
         if question and len(question) > self.max_sql_chars:
             return {"error": f"Question exceeds {self.max_sql_chars} characters"}
-        schema = self.get_schema()
-        prompt = f"Given this schema: {schema}, generate a valid SQL query to answer: {question}. Only return the SQL string."
+        schema = _format_schema(self.get_schema())
+        prompt = f"Given this schema:\n{schema}\nGenerate a valid SQL query to answer: {question}. Only return the SQL string."
         return self._generate_and_run(prompt)
 
     def ask_for_correction(self, original_sql, error, retries):

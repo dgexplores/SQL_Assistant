@@ -1,7 +1,7 @@
 {
   "seed": [
     "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, city TEXT)",
-    "CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER, total REAL)",
+    "CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id), total REAL)",
     "INSERT INTO users VALUES (1, 'Ava', 'Berlin'), (2, 'Ben', 'Berlin'), (3, 'Cleo', 'Paris')",
     "INSERT INTO orders VALUES (1, 1, 120.0), (2, 1, 80.0), (3, 2, 210.0), (4, 3, 50.0)"
   ],

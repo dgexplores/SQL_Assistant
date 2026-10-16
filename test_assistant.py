@@ -2,7 +2,7 @@ import unittest
 import os
 import tempfile
 from unittest import mock
-from assistant import SQLAssistant, _clean_sql
+from assistant import SQLAssistant, _clean_sql, _format_schema
 from sqlalchemy import create_engine, text
 
 class TestSQLAssistant(unittest.TestCase):
@@ -17,7 +17,25 @@ class TestSQLAssistant(unittest.TestCase):
     def test_schema_introspection(self):
         schema = self.assistant.get_schema()
         self.assertIn('users', schema)
-        self.assertEqual(schema['users'], ['id', 'name'])
+        self.assertEqual(
+            [c["name"] for c in schema['users']["columns"]],
+            ['id', 'name'])
+        self.assertTrue(
+            all(c["type"] for c in schema['users']["columns"]))
+
+    def test_schema_includes_foreign_keys(self):
+        with self.assistant.engine.connect() as conn:
+            conn.execute(text(
+                "CREATE TABLE orders (id INTEGER PRIMARY KEY, "
+                "user_id INTEGER REFERENCES users(id))"))
+            conn.commit()
+        schema = self.assistant.get_schema()
+        fks = schema["orders"]["foreign_keys"]
+        self.assertEqual(len(fks), 1)
+        self.assertEqual(fks[0]["referred_table"], "users")
+        rendered = _format_schema(schema)
+        self.assertIn("users(id:", rendered)
+        self.assertIn("orders.user_id -> users.id", rendered)
 
     def test_sql_validation_success(self):
         is_valid, _ = self.assistant.validate_sql("SELECT name FROM users")
