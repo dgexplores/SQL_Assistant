@@ -115,6 +115,14 @@ export OPENAI_API_KEY=sk-...
 python eval/run_eval.py
 ```
 
+Any OpenAI-compatible provider works via `base_url` (`OPENAI_BASE_URL`, model
+via `EVAL_MODEL`): OpenRouter, Groq, Together, DeepSeek, Gemini's OpenAI
+endpoint, or local Ollama with a dummy key.
+
+Latest run: 3/5 with `gemini-3.8-flash` (2026-10-15). All three answered
+questions were correct; the two misses were API-side failures (one 503
+capacity spike, one 429 free-tier daily quota exhaustion), not wrong SQL.
+
 ## Known limitations
 
 1. `sqlparse` denylist can reject legitimate dialect syntax; tune

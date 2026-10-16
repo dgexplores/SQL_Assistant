@@ -14,10 +14,13 @@ WRITE_KEYWORDS = frozenset({
 })
 
 
-def _get_client():
+def _get_client(base_url=None):
     # Lazy init so `import assistant` works without a key (tests, schema-only use).
     # Raises a clear error only when an LLM call is actually attempted.
-    return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    # base_url unlocks any OpenAI-compatible provider (OpenRouter, Groq,
+    # Together, DeepSeek, Gemini's OpenAI endpoint) or a local Ollama
+    # (base_url="http://localhost:11434/v1", any dummy key).
+    return OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url=base_url)
 
 
 def _walk_tokens(node):
@@ -53,12 +56,13 @@ def _clean_sql(sql):
 
 class SQLAssistant:
     def __init__(self, db_url, max_rows=1000, timeout_s=30, max_sql_chars=20000,
-                 model="gpt-4o-mini", llm_timeout_s=30):
+                 model="gpt-4o-mini", llm_timeout_s=30, base_url=None):
         self.max_rows = max_rows
         self.timeout_s = timeout_s
         self.max_sql_chars = max_sql_chars
         self.model = model
         self.llm_timeout_s = llm_timeout_s
+        self.base_url = base_url
         self.db_url = db_url
         # Per-dialect execution guard. SQLite gets a busy/wait timeout;
         # Postgres gets a statement_timeout via libpq options (covers the
@@ -138,7 +142,7 @@ class SQLAssistant:
         # LLM/transport failures surface as {"error": ...} like DB failures do,
         # so callers have one failure shape instead of handling exceptions.
         try:
-            response = _get_client().chat.completions.create(
+            response = _get_client(self.base_url).chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 timeout=self.llm_timeout_s,

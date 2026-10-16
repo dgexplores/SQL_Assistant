@@ -92,6 +92,22 @@ class TestSQLAssistant(unittest.TestCase):
         self.assertIn("error", out)
         self.assertNotIn("rows", out)
 
+    def test_base_url_reaches_compatible_provider(self):
+        # base_url must reach the client constructor so non-OpenAI
+        # endpoints (OpenRouter, Groq, Ollama, ...) actually get used.
+        with mock.patch("assistant.OpenAI") as factory:
+            SQLAssistant(self.db_url, base_url="http://localhost:11434/v1").ask("x")
+        _, kwargs = factory.call_args
+        self.assertEqual(kwargs.get("base_url"), "http://localhost:11434/v1")
+
+    def test_unreachable_provider_returns_error_shape(self):
+        # Closed port, no key: transport failure, not an exception.
+        os.environ.pop("OPENAI_API_KEY", None)
+        assistant = SQLAssistant(self.db_url, base_url="http://127.0.0.1:9/v1",
+                                 llm_timeout_s=3)
+        out = assistant.ask("how many users")
+        self.assertIn("error", out)
+
     def test_connect_args_per_dialect(self):
         # create_engine is lazy (no connection), so Postgres branching is
         # testable without a live server by observing the factory call.
