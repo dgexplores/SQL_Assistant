@@ -109,7 +109,6 @@ npx tailwindcss -i docs/tailwind.input.css -o docs/assets/tailwind.css --minify
 plus `run_eval.py`, which asks each question end-to-end and compares rows with
 an order-insensitive normalization (tolerates column order and aggregate
 labels). It needs `OPENAI_API_KEY` and is intentionally outside CI:
-
 ```bash
 export OPENAI_API_KEY=sk-...
 python eval/run_eval.py
@@ -122,6 +121,23 @@ endpoint, or local Ollama with a dummy key.
 Latest run: 3/5 with `gemini-3.8-flash` (2026-10-15). All three answered
 questions were correct; the two misses were API-side failures (one 503
 capacity spike, one 429 free-tier daily quota exhaustion), not wrong SQL.
+
+## Slack bot
+
+`slack_bot.py` answers data questions when mentioned (`@dbbot unpaid orders
+from Berlin?`) using Socket Mode, so it runs from any machine with no public
+URL. All questions go through `ask()`, so the safety guards apply unchanged.
+
+```bash
+pip install -r requirements.txt -r slack-requirements.txt
+export SLACK_BOT_TOKEN=xoxb-... SLACK_APP_TOKEN=xoxa-... DB_URL=sqlite:///shop.db
+python slack_bot.py
+```
+
+Create the app at api.slack.com/apps: enable Socket Mode, subscribe to
+`app_mention`, add scopes `app_mentions:read` and `chat:write`, install it.
+Model selection is env-driven (`LLM_MODEL`, `OPENAI_BASE_URL`,
+`OPENAI_API_KEY`); local Ollama works with a dummy key.
 
 ## Known limitations
 

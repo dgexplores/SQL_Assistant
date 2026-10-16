@@ -18,6 +18,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - run: pip install -r requirements.txt pytest
+      - run: pip install -r requirements.txt -r slack-requirements.txt pytest
       # No OPENAI_API_KEY is set: the suite must pass without LLM access.
-      - run: python -m pytest test_assistant.py -v
+      - run: python -m pytest -v
