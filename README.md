@@ -2,6 +2,11 @@
 
 Ask your database questions in plain English. Get trusted, read-only answers back.
 
+SQL Assistant is a small Python service and Slack bot that turns a business
+question into SQL, validates that SQL as read-only, and returns a bounded
+result. It is intended for analytics and reporting databases—not as a way to
+give an LLM unrestricted access to a production database.
+
 ```python
 from assistant import SQLAssistant
 
@@ -18,6 +23,24 @@ one self-correction attempt.
 Live demo (the safety checker, running in your browser):
 https://dgexplores.github.io/SQL_Assistant/
 
+## What organizations need to know
+
+Before connecting an organization database, you need:
+
+1. A reporting database, replica, warehouse, or curated views containing only
+   data the intended users may access.
+2. A dedicated database identity with `SELECT` permissions only—never an
+   administrator or application-writer account.
+3. An OpenAI-compatible model provider credential, stored in the
+   organization's secret manager.
+4. For Slack use, a workspace-owned Slack app with Socket Mode and the
+   `app_mentions:read` and `chat:write` scopes.
+5. Named owners for the database connection, Slack app, credential rotation,
+   access reviews, and incident response.
+
+The full step-by-step rollout, including a PostgreSQL role example and
+pre-launch checks, is in [ORG_ONBOARDING.md](ORG_ONBOARDING.md).
+
 ## Three ways to use it
 
 **1. Python library.** Point it at any SQLAlchemy database and call `ask()`.
@@ -31,6 +54,10 @@ Runs in Socket Mode from any machine, no public URL. See
 
 **3. Landing page demo.** `docs/` holds a static page with a working
 in-browser port of the validator. See [Landing page](#landing-page).
+
+For a production or team rollout, follow the
+[organization onboarding checklist](ORG_ONBOARDING.md) before connecting a
+database.
 
 ## Why the safety layer is real
 
@@ -84,16 +111,37 @@ Every public method returns a dict, never raises for expected failures:
 
 ## Setup
 
+### Use as a Python library
+
 ```bash
-pip install -r requirements.txt
-cp .env.example .env      # add your key
+python3 -m venv .venv
+source .venv/bin/activate
+pip install .
 export OPENAI_API_KEY=sk-...
-python -m pytest -v
+python3 -m pytest -v
 ```
 
 Tests run without an API key — the LLM client is created lazily and only on an
 actual LLM call. Local Ollama works with any dummy key plus
 `base_url="http://localhost:11434/v1"`.
+
+`.env.example` is a configuration reference. This project does not load `.env`
+automatically; inject its values as environment variables through your shell,
+deployment platform, or secret manager.
+
+### Organization rollout
+
+Use this sequence for a safe first deployment:
+
+1. Follow [ORG_ONBOARDING.md](ORG_ONBOARDING.md) to define the data boundary
+   and create the read-only database identity.
+2. Install the package with `pip install '.[slack]'` if your users will access
+   it from Slack.
+3. Configure the secrets and `DB_URL` in your approved secret manager.
+4. Run the test suite and the pre-launch verification checks in the onboarding
+   guide against a non-production dataset.
+5. Deploy the Slack bot, invite a small pilot group, and review access before
+   broader rollout.
 
 ## Slack bot
 
@@ -102,9 +150,10 @@ from Berlin?`) using Socket Mode, so it runs from any machine with no public
 URL. All questions go through `ask()`, so the safety guards apply unchanged.
 
 ```bash
-pip install -r requirements.txt -r slack-requirements.txt
+# installs the library plus Slack integration
+pip install '.[slack]'
 export SLACK_BOT_TOKEN=xoxb-... SLACK_APP_TOKEN=xoxa-... DB_URL=sqlite:///shop.db
-python slack_bot.py
+python3 slack_bot.py
 ```
 
 Create the app at api.slack.com/apps: enable Socket Mode, subscribe to
