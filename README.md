@@ -41,6 +41,31 @@ Before connecting an organization database, you need:
 The full step-by-step rollout, including a PostgreSQL role example and
 pre-launch checks, is in [ORG_ONBOARDING.md](ORG_ONBOARDING.md).
 
+## Organization onboarding pipeline
+
+```mermaid
+flowchart LR
+    A[Choose reporting data<br/>or curated views] --> B[Create dedicated<br/>read-only DB role]
+    B --> C[Store DB, model, and<br/>Slack credentials as secrets]
+    C --> D[Install and configure<br/>SQL Assistant]
+    D --> E[Run safety and<br/>representative-query checks]
+    E --> F[Launch a small<br/>Slack pilot]
+    F --> G[Review access, rotate<br/>credentials, and expand]
+```
+
+| Stage | Organization action | Evidence of completion |
+| --- | --- | --- |
+| 1. Scope | Choose the approved database, schemas, tables, and user groups. Prefer a reporting replica, warehouse, or curated views. | Data owner approves the data boundary. |
+| 2. Permissions | Create a dedicated database account with `SELECT` only. Do not use an administrator or application-writer account. | The account cannot create, update, delete, or alter data. |
+| 3. Secrets | Store `DB_URL`, model-provider key, and—if used—Slack tokens in the organization's secret manager. | No credentials are committed to Git or shared in chat. |
+| 4. Configure | Install the package, inject environment variables, and configure the model and database connection. | The service starts using the dedicated read-only identity. |
+| 5. Verify | Run tests and ask representative questions against non-production data. Test rejected write statements too. | `python3 -m pytest -v` passes and the database denies writes. |
+| 6. Pilot | Install the Slack app for a small approved group and collect feedback. | Pilot users can query only approved data. |
+| 7. Operate | Review access, monitor usage, and rotate credentials under normal security policy. | Named owners and an access-review cadence exist. |
+
+For the exact commands and a PostgreSQL role example, continue with
+[ORG_ONBOARDING.md](ORG_ONBOARDING.md).
+
 ## Three ways to use it
 
 **1. Python library.** Point it at any SQLAlchemy database and call `ask()`.
