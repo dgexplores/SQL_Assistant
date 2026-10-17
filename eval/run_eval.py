@@ -37,12 +37,15 @@ def main():
     # Local Ollama example (no real key needed):
     #   ollama serve & ollama pull qwen2.5-coder:1.5b
     #   OPENAI_API_KEY=ollama OPENAI_BASE_URL=http://localhost:11434/v1 \
-    #     EVAL_MODEL=qwen2.5-coder:1.5b python eval/run_eval.py
+    #     EVAL_MODEL=qwen2.5-coder:1.5b EVAL_LLM_TIMEOUT=120 \
+    #     python eval/run_eval.py
     if not os.getenv("OPENAI_API_KEY") and not os.getenv("OPENAI_BASE_URL"):
         print("SKIP: set OPENAI_API_KEY (or OPENAI_BASE_URL for a compatible endpoint); eval needs a live model call.")
         return 0
     model = os.getenv("EVAL_MODEL", "gpt-4o-mini")
     base_url = os.getenv("OPENAI_BASE_URL")
+    # Local models are slower than hosted ones; EVAL_LLM_TIMEOUT gives them room.
+    llm_timeout = float(os.getenv("EVAL_LLM_TIMEOUT", "30"))
     with open(os.path.join(os.path.dirname(__file__), "dataset.json")) as f:
         dataset = json.load(f)
     passed = 0
@@ -55,7 +58,8 @@ def main():
                     conn.execute(text(stmt))
                 conn.commit()
             engine.dispose()
-            out = SQLAssistant(db_url, model=model, base_url=base_url).ask(case["question"])
+            out = SQLAssistant(db_url, model=model, base_url=base_url,
+                               llm_timeout_s=llm_timeout).ask(case["question"])
         ok = out.get("success") and normalize(out["rows"]) == expected_rows(case)
         passed += bool(ok)
         got = out.get("rows", out.get("error"))
