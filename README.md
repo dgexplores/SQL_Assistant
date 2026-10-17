@@ -7,6 +7,49 @@ question into SQL, validates that SQL as read-only, and returns a bounded
 result. It is intended for analytics and reporting databases—not as a way to
 give an LLM unrestricted access to a production database.
 
+## Common organization use cases
+
+SQL Assistant fits teams that already have trustworthy reporting data but want
+non-technical colleagues to ask simple questions without writing SQL. Typical
+uses include:
+
+- Sales operations: pipeline totals, account activity, regional performance,
+  and overdue opportunities.
+- Customer support: ticket volumes, response times, recurring issues, and
+  customer history from approved support views.
+- Finance and operations: order status, invoices, inventory summaries, and
+  weekly operational reporting.
+- Product and data teams: quick exploratory questions against an analytics
+  warehouse before creating a repeatable dashboard or report.
+
+It is not intended for write actions, automated business decisions, direct
+access to sensitive source tables, or unrestricted access to a production
+transactional database.
+
+## How people use it inside an organization
+
+| Role | What they do |
+| --- | --- |
+| Business user | Asks a plain-English question in Slack, such as “Which regions had the most paid orders last month?” |
+| SQL Assistant | Reads the approved schema, asks the configured model for SQL, validates it as a single read-only query, then returns a capped result. |
+| Data owner | Curates the views or tables, defines who may access them, and checks that results remain appropriate. |
+| Platform or security owner | Manages the read-only database role, Slack app, secrets, deployment, access reviews, and credential rotation. |
+
+## Request pipeline
+
+```mermaid
+flowchart LR
+    A[Business question<br/>in Slack or Python] --> B[Read approved<br/>database schema]
+    B --> C[Model generates SQL]
+    C --> D{Read-only validator}
+    D -->|Rejected| E[Return safe error]
+    D -->|Allowed| F[Execute as dedicated<br/>read-only DB role]
+    F --> G[Cap rows and return<br/>the result]
+```
+
+The model never receives permission to write. Every generated statement passes
+the validator, and the database role remains the final enforcement boundary.
+
 ```python
 from assistant import SQLAssistant
 
