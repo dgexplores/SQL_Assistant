@@ -104,8 +104,25 @@ def test_generation_rejects_empty_oversized_or_multistatement_answers():
 
 def test_result_cell_size_is_bounded_and_later_queries_still_work():
     with TestClient(app, headers={"X-SQL-Generation-Token": TOKEN}) as client:
-        response = client.post('/api/query', json={'sql': "SELECT printf('%2000000s', 'x') AS huge"})
+        # Concatenation must raise SQLITE_TOOBIG when the value crosses 1 MiB.
+        # Unlike printf, it does not return NULL as a platform-dependent fallback.
+        sql = ("WITH RECURSIVE payload(n,value) AS (SELECT 0,'x' UNION ALL "
+               "SELECT n+1,value||value FROM payload WHERE n<21) "
+               "SELECT value FROM payload WHERE n=21")
+        response = client.post('/api/query', json={'sql': sql})
         assert response.status_code == 422
+        assert client.post('/api/query', json={'sql': 'SELECT 1 AS n'}).json()['rows'] == [{'n': 1}]
+
+
+def test_printf_never_returns_an_oversized_value_across_sqlite_builds():
+    with TestClient(app) as client:
+        response = client.post('/api/query', json={'sql': "SELECT printf('%2000000s', 'x') AS huge"})
+        # SQLite builds differ: printf may propagate SQLITE_TOOBIG or return NULL
+        # after its internal limit check. Both outcomes enforce the same bound.
+        assert response.status_code in {200, 422}
+        if response.status_code == 200:
+            value = response.json()['rows'][0]['huge']
+            assert value is None or len(value.encode('utf-8')) <= 1_048_576
         assert client.post('/api/query', json={'sql': 'SELECT 1 AS n'}).json()['rows'] == [{'n': 1}]
 
 
