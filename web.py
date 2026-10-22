@@ -3,11 +3,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 import sqlite3
 import os
+import hmac
 import threading
 import tempfile
 import time
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -48,7 +49,9 @@ async def lifespan(application):
             model=os.getenv("SQL_LLM_MODEL", "gpt-4o-mini"),
             base_url=os.getenv("OPENAI_BASE_URL"), llm_timeout_s=10,
         )
-        application.state.llm_enabled = os.getenv("SQL_LLM_ENABLED", "false").lower() == "true"
+        application.state.generation_token = os.getenv("SQL_GENERATION_TOKEN", "").strip()
+        requested = os.getenv("SQL_LLM_ENABLED", "false").lower() == "true"
+        application.state.llm_enabled = requested and len(application.state.generation_token) >= 32
         application.state.generation_slots = threading.BoundedSemaphore(2)
         application.state.assistant = assistant
         yield
@@ -103,10 +106,14 @@ def ask(payload: Question):
 
 
 @app.post("/api/generate")
-def generate(payload: Question):
+def generate(payload: Question, generation_token: str | None = Header(default=None, alias="X-SQL-Generation-Token", max_length=1024)):
     """Request a provider-generated preview; execution is a separate action."""
     if not app.state.llm_enabled:
-        raise HTTPException(503, "Model generation is disabled. Use guided questions or SQL; configure SQL_LLM_ENABLED, SQL_LLM_MODEL and provider credentials to enable your own questions.")
+        raise HTTPException(503, "Model generation is disabled. Use guided questions or SQL; configure SQL_LLM_ENABLED, SQL_LLM_MODEL, a SQL_GENERATION_TOKEN of at least 32 characters and provider credentials to enable your own questions.")
+    if not generation_token or not hmac.compare_digest(
+        generation_token.encode("utf-8"), app.state.generation_token.encode("utf-8")
+    ):
+        raise HTTPException(401, "A valid operator generation token is required.")
     if not app.state.generation_slots.acquire(blocking=False):
         raise HTTPException(429, "Two generation requests are already running. Try again shortly.")
     started = time.perf_counter()

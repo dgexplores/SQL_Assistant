@@ -7,7 +7,7 @@ A Python analytics workbench that separates **generating SQL, inspecting it, and
 ## What a recruiter can review
 
 - Python/OOP core, FastAPI REST endpoints, typed request validation and visible SQL/results.
-- Optional OpenAI-compatible generation with a configurable model/endpoint, ten-second timeout, no SDK retries, bounded output and two concurrent preview requests.
+- Optional OpenAI-compatible generation with a configurable model/endpoint, ten-second timeout, no SDK retries, bounded output and two concurrent preview requests, and a required operator token for generation.
 - Separate preview and execution actions: the model never automatically runs SQL in the browser workflow.
 - SQLite read-only URI mode, execution-time authorizer, table allowlist, one-second query deadline, 100-row cap and 1 MiB SQLite value limit.
 - Tests for validator bypass, writes, hidden-schema reads, unsafe functions, oversized values, prompt-output refusal, provider failures, disabled-mode isolation and concurrency.
@@ -33,15 +33,18 @@ Configure secrets in your local shell or deployment secret store, never in Git:
 ```bash
 export SQL_LLM_ENABLED=true
 export SQL_LLM_MODEL=your-provider-model
-# Set OPENAI_API_KEY securely, outside version control.
+# Set OPENAI_API_KEY and SQL_GENERATION_TOKEN securely, outside version control.
+# SQL_GENERATION_TOKEN must be a random secret of at least 32 characters.
 # Optional for an OpenAI-compatible service:
 export OPENAI_BASE_URL=https://your-provider.example/v1
 uvicorn web:app --host 127.0.0.1 --port 8000
 ```
 
+Generation is enabled only when SQL_LLM_ENABLED=true and SQL_GENERATION_TOKEN has at least 32 characters. Enter the operator token in the password field before generating a preview. The application clears the field after success or failure and does not persist it in browser storage. API clients send it in the X-SQL-Generation-Token header. Missing or incorrect tokens return 401 before contacting the provider. Metadata endpoints never expose it. Use HTTPS for any non-local deployment.
+
 The server sends the question and schema to the configured provider. Model requests happen only after submitting your own question to `/api/generate`. Guided examples do not call a model even when it is enabled. A preview can still contain incorrect SQL or answer the wrong question; inspecting and executing it does not prove semantic correctness.
 
-This version has no authentication or per-user monetary quota. Keep provider-enabled mode on a trusted local/private deployment; add authentication and budget controls before offering public paid-provider access. Two concurrent requests is a resource bound, not a cost budget. A local OpenAI-compatible server can be used with its required model and key configuration; no such server was exercised here.
+A shared operator token protects generation; this is not a user account, role system or per-user monetary quota. Keep provider-enabled mode on a trusted local/private deployment; add user authentication and budget controls before offering broad public paid-provider access. Two concurrent requests is a resource bound, not a cost budget. A local OpenAI-compatible server can be used with its required model and key configuration; no such server was exercised here.
 
 ## Two-minute demonstration
 
@@ -61,7 +64,7 @@ This version has no authentication or per-user monetary quota. Keep provider-ena
 | `POST /api/query` | `{ "sql": "..." }` → bounded real rows, query and elapsed time |
 | `POST /api/ask` | Guided predefined questions only; does not call a model |
 
-Disabled model generation returns 503, occupied generation slots 429, provider/invalid model output 502, and refused/failed SQL 422. Provider exception details are redacted to the exception class; credentials and provider error text are not sent to browsers.
+Disabled/unconfigured model generation returns 503, missing/incorrect operator tokens 401, occupied generation slots 429, provider/invalid model output 502, and refused/failed SQL 422. Provider exception details are redacted to the exception class; credentials and provider error text are not sent to browsers.
 
 ## Architecture
 
@@ -88,7 +91,7 @@ python eval/benchmark.py --mode reference --output /tmp/sales-reference.json
 python eval/benchmark.py --mode reference --dataset eval/heldout-support.json --output /tmp/support-reference.json
 ```
 
-The rebuilt version passed **37 tests plus 15 subtests** on Python 3.12. Reference execution matched **18/18 sales fixtures** and **12/12 support-domain fixtures**. The support schema, questions and answers are separate from browser examples. They are public synthetic fixtures held out from guided examples, not a sealed external evaluation. Saved reports:
+The rebuilt version passed **42 tests plus 15 subtests** on Python 3.12. Reference execution matched **18/18 sales fixtures** and **12/12 support-domain fixtures**. The support schema, questions and answers are separate from browser examples. They are public synthetic fixtures held out from guided examples, not a sealed external evaluation. Saved reports:
 
 - [Sales reference checks](eval/rebuild-reference-report.json)
 - [Support reference checks](eval/heldout-reference-report.json)

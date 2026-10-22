@@ -1,6 +1,6 @@
 let modelEnabled=false;
 const statusEl=document.querySelector('#status'), output=document.querySelector('#result'), editor=document.querySelector('#sql'), run=document.querySelector('#run');
-async function request(path,body){const response=await fetch(path,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const data=await response.json();if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:'Check the query and try again.');return data;}
+async function request(path,body,headers={}){const response=await fetch(path,body?{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)}:{});const data=await response.json();if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:'Check the query and try again.');return data;}
 function show(data){output.replaceChildren();const rows=data.rows;if(!rows.length){output.textContent='No matching rows. Try a different filter.';}else{const table=document.createElement('table'),head=document.createElement('thead'),tr=document.createElement('tr');for(const key of Object.keys(rows[0])){const th=document.createElement('th');th.scope='col';th.textContent=key;tr.append(th);}head.append(tr);table.append(head);const tbody=document.createElement('tbody');for(const row of rows){const tr=document.createElement('tr');for(const value of Object.values(row)){const td=document.createElement('td');td.textContent=value===null?'NULL':String(value);tr.append(td);}tbody.append(tr);}table.append(tbody);output.append(table);}statusEl.textContent=`${rows.length} rows · ${data.elapsed_ms} ms · ${data.mode}${data.truncated?' · results truncated':''}`;}
 async function execute(path,body){document.querySelectorAll('#workspace button').forEach(button=>button.disabled=true);statusEl.textContent='Running query…';try{show(await request(path,body));}catch(error){statusEl.textContent=error.message;output.replaceChildren();}finally{document.querySelectorAll('#workspace button').forEach(button=>button.disabled=false);document.querySelector('#generate').disabled=!modelEnabled;}}
 run.addEventListener('click',()=>execute('/api/query',{sql:editor.value}));
@@ -12,8 +12,8 @@ document.querySelector('#question-form').addEventListener('submit',async event=>
  document.querySelectorAll('#workspace button').forEach(button=>button.disabled=true);
  statusEl.textContent='Generating a SQL preview…';output.replaceChildren();
  try{
-  const data=await request('/api/generate',{question:document.querySelector('#question').value});
+  const data=await request('/api/generate',{question:document.querySelector('#question').value},{'X-SQL-Generation-Token':document.querySelector('#generation-token').value});
   editor.value=data.sql;statusEl.textContent=`Preview from ${data.generation_model} · ${data.elapsed_ms} ms. Inspect the SQL, then choose Run query. Nothing has executed.`;
  }catch(error){statusEl.textContent=error.message;}
- finally{document.querySelectorAll('#workspace button').forEach(button=>button.disabled=false);document.querySelector('#generate').disabled=!modelEnabled;}
+ finally{document.querySelector('#generation-token').value='';document.querySelectorAll('#workspace button').forEach(button=>button.disabled=false);document.querySelector('#generate').disabled=!modelEnabled;}
 });

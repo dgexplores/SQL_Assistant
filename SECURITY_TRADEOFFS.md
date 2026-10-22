@@ -14,9 +14,9 @@ Model output is limited to 1600 tokens and the SQL character limit. Browser gene
 
 ## External generation is explicit
 
-Default mode sends no provider requests. `SQL_LLM_ENABLED=true` enables `/api/generate` using operator-provided credentials, model and optional compatible endpoint. Questions and schema are transmitted to that endpoint. API clients cannot supply their own database or provider URLs. A generated preview never executes in this endpoint; the user must submit a separate execution request. Guided questions remain predefined and provider-free.
+Default mode sends no provider requests. `SQL_LLM_ENABLED=true` plus a configured random `SQL_GENERATION_TOKEN` of at least 32 characters enables `/api/generate` using operator-provided credentials, model and optional compatible endpoint. The generation endpoint requires an exact, constant-time token comparison in `X-SQL-Generation-Token` before taking a model slot or contacting a provider. Wrong/missing tokens return 401. No configured token means generation stays disabled. The browser password field is cleared after the request and the application does not use persistent browser storage for it. Metadata never includes the token. Use TLS outside localhost. Questions and schema are transmitted to that endpoint. API clients cannot supply their own database or provider URLs. A generated preview never executes in this endpoint; the user must submit a separate execution request. Guided questions remain predefined and provider-free.
 
-The service has no authentication, user isolation or monetary budget. Provider-enabled mode belongs on a trusted local/private service until those controls are added. Do not put a paid key behind an unauthenticated public deployment. Browser provider failures expose the exception class, not raw provider text, URLs or credentials.
+A shared operator token gates generation, but the service has no user-account authentication, user isolation or monetary budget. Provider-enabled mode belongs on a trusted local/private service until those controls are added. Do not distribute the shared token broadly or put a paid key behind an unrestricted public deployment. Browser provider failures expose the exception class, not raw provider text, URLs or credentials.
 
 ## Other database dialects
 
