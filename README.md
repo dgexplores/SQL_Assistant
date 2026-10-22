@@ -2,7 +2,7 @@
 
 A Python analytics workbench that separates **generating SQL, inspecting it, and executing it**. Ask a configured LLM your own question, review its SQL preview, then explicitly run the query against a read-only fictional sales database. Without provider configuration, six labelled guided examples and the SQL editor work completely offline.
 
-**Current state:** local rebuild, not published or deployed. Older hosted applications and deleted GitHub repositories are not evidence for this version. No claim of outperforming DataSense is made.
+**Current state:** independent Python rebuild with a hosted offline demonstration. Optional model generation requires configuration and operator authorization. No claim of outperforming DataSense is made.
 
 ## What a recruiter can review
 
@@ -91,7 +91,7 @@ python eval/benchmark.py --mode reference --output /tmp/sales-reference.json
 python eval/benchmark.py --mode reference --dataset eval/heldout-support.json --output /tmp/support-reference.json
 ```
 
-The rebuilt version passed **42 tests plus 15 subtests** on Python 3.12. Reference execution matched **18/18 sales fixtures** and **12/12 support-domain fixtures**. The support schema, questions and answers are separate from browser examples. They are public synthetic fixtures held out from guided examples, not a sealed external evaluation. Saved reports:
+The rebuilt version passed **43 tests plus 15 subtests** on Python 3.12. Reference execution matched **18/18 sales fixtures** and **12/12 support-domain fixtures**. The support schema, questions and answers are separate from browser examples. They are public synthetic fixtures held out from guided examples, not a sealed external evaluation. Saved reports:
 
 - [Sales reference checks](eval/rebuild-reference-report.json)
 - [Support reference checks](eval/heldout-reference-report.json)
@@ -122,3 +122,7 @@ The runner sends only the question and schema, not gold SQL or expected rows. Re
 This is an independently implemented extension of the earlier SQL_Assistant application, developed with AI assistance. [DataSenseQA](https://github.com/raywanb/DataSenseQA), by Felix Krumme, Ray Wan, Dimple Amitha Garuadapuri and Manan Dhanuka, inspired benchmark organization. Its implementation, datasets, questions, scores and awards are not copied or claimed here.
 
 For an interview, explain the code paths and actual modifications you understand; do not describe upstream work or AI-generated work you have not reviewed as independently authored. The code is MIT licensed; see [LICENSE](LICENSE).
+
+## Demo and interview walkthrough
+
+[Open the demo](https://dg-sql-analytics.onrender.com) · [Five-minute walkthrough](docs/DEMO.md). Free hosting can sleep; instance-local demo records may reset. External-provider and Jira modes are disabled unless configured and authorized.
