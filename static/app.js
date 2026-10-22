@@ -1,0 +1,19 @@
+let modelEnabled=false;
+const statusEl=document.querySelector('#status'), output=document.querySelector('#result'), editor=document.querySelector('#sql'), run=document.querySelector('#run');
+async function request(path,body){const response=await fetch(path,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const data=await response.json();if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:'Check the query and try again.');return data;}
+function show(data){output.replaceChildren();const rows=data.rows;if(!rows.length){output.textContent='No matching rows. Try a different filter.';}else{const table=document.createElement('table'),head=document.createElement('thead'),tr=document.createElement('tr');for(const key of Object.keys(rows[0])){const th=document.createElement('th');th.scope='col';th.textContent=key;tr.append(th);}head.append(tr);table.append(head);const tbody=document.createElement('tbody');for(const row of rows){const tr=document.createElement('tr');for(const value of Object.values(row)){const td=document.createElement('td');td.textContent=value===null?'NULL':String(value);tr.append(td);}tbody.append(tr);}table.append(tbody);output.append(table);}statusEl.textContent=`${rows.length} rows · ${data.elapsed_ms} ms · ${data.mode}${data.truncated?' · results truncated':''}`;}
+async function execute(path,body){document.querySelectorAll('#workspace button').forEach(button=>button.disabled=true);statusEl.textContent='Running query…';try{show(await request(path,body));}catch(error){statusEl.textContent=error.message;output.replaceChildren();}finally{document.querySelectorAll('#workspace button').forEach(button=>button.disabled=false);document.querySelector('#generate').disabled=!modelEnabled;}}
+run.addEventListener('click',()=>execute('/api/query',{sql:editor.value}));
+request('/api/schema').then(data=>{modelEnabled=data.llm_enabled;document.querySelector('#generate').disabled=!modelEnabled;document.querySelector('#provider-status').textContent=modelEnabled?`Model previews enabled: ${data.model}. Guided examples still use predefined SQL.`:'Offline mode. Guided questions use predefined SQL. No LLM calls are made. Your own questions require operator provider configuration.';for(const example of data.examples){const button=document.createElement('button');button.textContent=example.question;button.addEventListener('click',()=>{editor.value=example.sql;execute('/api/ask',{question:example.question});});document.querySelector('#examples').append(button);}for(const [name,info]of Object.entries(data.schema)){const pre=document.createElement('pre');pre.textContent=`${name}\n${info.columns.map(c=>`  ${c.name}  ${c.type}`).join('\n')}`;document.querySelector('#schema').append(pre);}statusEl.textContent='Ready. Choose a question or run your SQL.';}).catch(()=>{statusEl.textContent='The database is unavailable. Reload to retry.';});
+
+document.querySelector('#question-form').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(!modelEnabled)return;
+ document.querySelectorAll('#workspace button').forEach(button=>button.disabled=true);
+ statusEl.textContent='Generating a SQL preview…';output.replaceChildren();
+ try{
+  const data=await request('/api/generate',{question:document.querySelector('#question').value});
+  editor.value=data.sql;statusEl.textContent=`Preview from ${data.generation_model} · ${data.elapsed_ms} ms. Inspect the SQL, then choose Run query. Nothing has executed.`;
+ }catch(error){statusEl.textContent=error.message;}
+ finally{document.querySelectorAll('#workspace button').forEach(button=>button.disabled=false);document.querySelector('#generate').disabled=!modelEnabled;}
+});

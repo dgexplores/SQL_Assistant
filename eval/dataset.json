@@ -1,0 +1,15 @@
+{
+  "seed": [
+    "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, city TEXT)",
+    "CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id), total REAL)",
+    "INSERT INTO users VALUES (1, 'Ava', 'Berlin'), (2, 'Ben', 'Berlin'), (3, 'Cleo', 'Paris')",
+    "INSERT INTO orders VALUES (1, 1, 120.0), (2, 1, 80.0), (3, 2, 210.0), (4, 3, 50.0)"
+  ],
+  "cases": [
+    {"id": "count_users", "question": "how many users are there?", "expected": [[3]]},
+    {"id": "berlin_users", "question": "names of users in Berlin", "expected": [["Ava"], ["Ben"]]},
+    {"id": "order_total", "question": "total of all orders", "expected": [[460.0]]},
+    {"id": "big_spenders", "question": "which users placed orders over 100?", "expected": [["Ava"], ["Ben"]]},
+    {"id": "top_customer", "question": "which customer has the highest order total?", "expected": [["Ben"]]}
+  ]
+}

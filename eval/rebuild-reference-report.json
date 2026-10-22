@@ -1,0 +1,342 @@
+{
+  "dataset": "commerce-v1",
+  "dataset_sha256": "4e5ab4d24d544ba64bebe30b481ebc666cb370d6e69b9d1b885b51e0795b4315",
+  "mode": "reference",
+  "created_at": "2026-10-22T08:36:43.661099+00:00",
+  "model": null,
+  "measures": "reference-SQL executor correctness; NOT model accuracy",
+  "limitations": "Original synthetic evaluation fixtures separate from public guided examples. Public gold answers; not a sealed external benchmark.",
+  "cases": [
+    {
+      "id": "count",
+      "category": "aggregation",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 1.8,
+      "actual": [
+        {
+          "COUNT(*)": 5
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT COUNT(*) FROM customers"
+    },
+    {
+      "id": "missing",
+      "category": "nulls",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 0.28,
+      "actual": [
+        {
+          "name": "Kabir"
+        },
+        {
+          "name": "Rohan"
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT name FROM customers WHERE email IS NULL"
+    },
+    {
+      "id": "south",
+      "category": "filter",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 0.23,
+      "actual": [
+        {
+          "name": "Asha"
+        },
+        {
+          "name": "Meera"
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT name FROM customers WHERE region='South'"
+    },
+    {
+      "id": "no_orders",
+      "category": "joins",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.45,
+      "actual": [
+        {
+          "name": "Rohan"
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT c.name FROM customers c LEFT JOIN orders o ON c.id=o.customer_id WHERE o.id IS NULL"
+    },
+    {
+      "id": "sum",
+      "category": "aggregation",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 0.21,
+      "actual": [
+        {
+          "SUM(amount)": 590.0
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT SUM(amount) FROM orders"
+    },
+    {
+      "id": "region",
+      "category": "joins",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.45,
+      "actual": [
+        {
+          "region": "North",
+          "SUM(o.amount)": 340.0
+        },
+        {
+          "region": "South",
+          "SUM(o.amount)": 250.0
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT c.region,SUM(o.amount) FROM customers c JOIN orders o ON c.id=o.customer_id GROUP BY c.region"
+    },
+    {
+      "id": "months",
+      "category": "dates",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.43,
+      "actual": [
+        {
+          "substr(ordered_at,1,7)": "2026-01",
+          "SUM(amount)": 320.0
+        },
+        {
+          "substr(ordered_at,1,7)": "2026-02",
+          "SUM(amount)": 230.0
+        },
+        {
+          "substr(ordered_at,1,7)": "2026-03",
+          "SUM(amount)": 40.0
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT substr(ordered_at,1,7),SUM(amount) FROM orders GROUP BY substr(ordered_at,1,7)"
+    },
+    {
+      "id": "large",
+      "category": "filter",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 0.23,
+      "actual": [
+        {
+          "id": 1,
+          "amount": 120.0
+        },
+        {
+          "id": 3,
+          "amount": 200.0
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT id,amount FROM orders WHERE amount>100"
+    },
+    {
+      "id": "paid",
+      "category": "filter",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 0.25,
+      "actual": [
+        {
+          "SUM(amount)": 540.0
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT SUM(amount) FROM orders WHERE status='paid'"
+    },
+    {
+      "id": "having",
+      "category": "aggregation",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.57,
+      "actual": [
+        {
+          "name": "Asha",
+          "SUM(o.amount)": 200.0
+        },
+        {
+          "name": "Kabir",
+          "SUM(o.amount)": 240.0
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT c.name,SUM(o.amount) FROM customers c JOIN orders o ON c.id=o.customer_id GROUP BY c.id HAVING SUM(o.amount)>150"
+    },
+    {
+      "id": "not_refunded",
+      "category": "subqueries",
+      "difficulty": "hard",
+      "passed": true,
+      "elapsed_ms": 0.38,
+      "actual": [
+        {
+          "id": 2
+        },
+        {
+          "id": 4
+        },
+        {
+          "id": 5
+        },
+        {
+          "id": 6
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT id FROM orders WHERE NOT EXISTS (SELECT 1 FROM refunds WHERE refunds.order_id=orders.id)"
+    },
+    {
+      "id": "refund_totals",
+      "category": "aggregation",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.3,
+      "actual": [
+        {
+          "order_id": 1,
+          "SUM(amount)": 20.0
+        },
+        {
+          "order_id": 3,
+          "SUM(amount)": 60.0
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT order_id,SUM(amount) FROM refunds GROUP BY order_id"
+    },
+    {
+      "id": "net",
+      "category": "joins",
+      "difficulty": "hard",
+      "passed": true,
+      "elapsed_ms": 0.96,
+      "actual": [
+        {
+          "name": "Asha",
+          "COALESCE(SUM(o.amount-COALESCE(r.refunded,0)),0)": 180.0
+        },
+        {
+          "name": "Kabir",
+          "COALESCE(SUM(o.amount-COALESCE(r.refunded,0)),0)": 180.0
+        },
+        {
+          "name": "Meera",
+          "COALESCE(SUM(o.amount-COALESCE(r.refunded,0)),0)": 50.0
+        },
+        {
+          "name": "Rohan",
+          "COALESCE(SUM(o.amount-COALESCE(r.refunded,0)),0)": 0
+        },
+        {
+          "name": "Tara",
+          "COALESCE(SUM(o.amount-COALESCE(r.refunded,0)),0)": 100.0
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT c.name,COALESCE(SUM(o.amount-COALESCE(r.refunded,0)),0) FROM customers c LEFT JOIN orders o ON c.id=o.customer_id LEFT JOIN (SELECT order_id,SUM(amount) AS refunded FROM refunds GROUP BY order_id) r ON r.order_id=o.id GROUP BY c.id"
+    },
+    {
+      "id": "repeat",
+      "category": "aggregation",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.45,
+      "actual": [
+        {
+          "name": "Asha"
+        },
+        {
+          "name": "Kabir"
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT c.name FROM customers c JOIN orders o ON c.id=o.customer_id GROUP BY c.id HAVING COUNT(o.id)>1"
+    },
+    {
+      "id": "empty",
+      "category": "filter",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 0.2,
+      "actual": [],
+      "error": null,
+      "executed_sql": "SELECT id FROM orders WHERE amount>5000"
+    },
+    {
+      "id": "top_region",
+      "category": "subqueries",
+      "difficulty": "hard",
+      "passed": true,
+      "elapsed_ms": 0.47,
+      "actual": [
+        {
+          "region": "North"
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT c.region FROM customers c JOIN orders o ON c.id=o.customer_id GROUP BY c.region ORDER BY SUM(o.amount) DESC LIMIT 1"
+    },
+    {
+      "id": "feb",
+      "category": "dates",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.31,
+      "actual": [
+        {
+          "SUM(amount)": 230.0
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT SUM(amount) FROM orders WHERE ordered_at>='2026-02-01' AND ordered_at<'2026-03-01'"
+    },
+    {
+      "id": "march",
+      "category": "joins",
+      "difficulty": "hard",
+      "passed": true,
+      "elapsed_ms": 0.6,
+      "actual": [
+        {
+          "name": "Kabir",
+          "amount": 40.0
+        }
+      ],
+      "error": null,
+      "executed_sql": "SELECT c.name,o.amount FROM customers c JOIN orders o ON c.id=o.customer_id WHERE o.ordered_at>='2026-03-01' AND o.ordered_at<'2026-04-01'"
+    }
+  ],
+  "status": "completed",
+  "total": 18,
+  "passed": 18,
+  "by_difficulty": {
+    "easy": {
+      "total": 7,
+      "passed": 7
+    },
+    "medium": {
+      "total": 7,
+      "passed": 7
+    },
+    "hard": {
+      "total": 4,
+      "passed": 4
+    }
+  },
+  "accuracy": 1.0
+}

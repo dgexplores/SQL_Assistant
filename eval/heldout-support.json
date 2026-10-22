@@ -1,0 +1,202 @@
+{
+  "version": "support-heldout-v1",
+  "description": "Twelve original public synthetic helpdesk fixtures, separate from the sales browser schema and original sales evaluation fixtures. Held out from guided examples, not a sealed external benchmark. Reference execution is not model accuracy. Expected values were specified independently before reference execution.",
+  "seed": [
+    "CREATE TABLE organizations(id INTEGER PRIMARY KEY,name TEXT)",
+    "CREATE TABLE agents(id INTEGER PRIMARY KEY,name TEXT)",
+    "CREATE TABLE tickets(id INTEGER PRIMARY KEY,organization_id INTEGER REFERENCES organizations(id),agent_id INTEGER REFERENCES agents(id),priority TEXT,status TEXT,hours REAL)",
+    "INSERT INTO organizations VALUES(1,'Orion'),(2,'Harbor'),(3,'Lyra'),(4,'Vega')",
+    "INSERT INTO agents VALUES(1,'Asha'),(2,'Kabir'),(3,'Meera'),(4,'Rohan')",
+    "INSERT INTO tickets VALUES(1,1,1,'high','open',2),(2,1,2,'low','closed',6),(3,2,1,'high','closed',3),(4,2,NULL,'medium','open',NULL),(5,3,2,'high','open',8),(6,3,3,'low','closed',0),(7,1,1,'high','closed',4),(8,2,NULL,'high','open',1)"
+  ],
+  "cases": [
+    {
+      "id": "count",
+      "category": "aggregation",
+      "difficulty": "easy",
+      "question": "How many tickets exist?",
+      "reference_sql": "SELECT COUNT(*) FROM tickets",
+      "expected": [
+        [
+          8
+        ]
+      ]
+    },
+    {
+      "id": "open",
+      "category": "filter",
+      "difficulty": "easy",
+      "question": "Which ticket IDs are open, in ID order?",
+      "reference_sql": "SELECT id FROM tickets WHERE status='open' ORDER BY id",
+      "expected": [
+        [
+          1
+        ],
+        [
+          4
+        ],
+        [
+          5
+        ],
+        [
+          8
+        ]
+      ]
+    },
+    {
+      "id": "missing_owner",
+      "category": "nulls",
+      "difficulty": "easy",
+      "question": "Which ticket IDs have no assigned agent?",
+      "reference_sql": "SELECT id FROM tickets WHERE agent_id IS NULL ORDER BY id",
+      "expected": [
+        [
+          4
+        ],
+        [
+          8
+        ]
+      ]
+    },
+    {
+      "id": "closed_average",
+      "category": "aggregation",
+      "difficulty": "medium",
+      "question": "What is the average recorded effort in hours for closed tickets?",
+      "reference_sql": "SELECT AVG(hours) FROM tickets WHERE status='closed'",
+      "expected": [
+        [
+          3.25
+        ]
+      ]
+    },
+    {
+      "id": "no_tickets",
+      "category": "joins",
+      "difficulty": "medium",
+      "question": "Which organizations have no tickets?",
+      "reference_sql": "SELECT o.name FROM organizations o LEFT JOIN tickets t ON t.organization_id=o.id WHERE t.id IS NULL",
+      "expected": [
+        [
+          "Vega"
+        ]
+      ]
+    },
+    {
+      "id": "unassigned_agents",
+      "category": "joins",
+      "difficulty": "medium",
+      "question": "Which agents have no assigned tickets?",
+      "reference_sql": "SELECT a.name FROM agents a LEFT JOIN tickets t ON t.agent_id=a.id WHERE t.id IS NULL",
+      "expected": [
+        [
+          "Rohan"
+        ]
+      ]
+    },
+    {
+      "id": "org_counts",
+      "category": "aggregation",
+      "difficulty": "medium",
+      "question": "List each organization and its ticket count, including zero counts.",
+      "reference_sql": "SELECT o.name, COUNT(t.id) FROM organizations o LEFT JOIN tickets t ON t.organization_id=o.id GROUP BY o.id ORDER BY o.name",
+      "expected": [
+        [
+          "Harbor",
+          3
+        ],
+        [
+          "Lyra",
+          2
+        ],
+        [
+          "Orion",
+          3
+        ],
+        [
+          "Vega",
+          0
+        ]
+      ]
+    },
+    {
+      "id": "high_open",
+      "category": "filter",
+      "difficulty": "easy",
+      "question": "How many high-priority tickets are open?",
+      "reference_sql": "SELECT COUNT(*) FROM tickets WHERE priority='high' AND status='open'",
+      "expected": [
+        [
+          3
+        ]
+      ]
+    },
+    {
+      "id": "high_effort",
+      "category": "filter",
+      "difficulty": "easy",
+      "question": "Which tickets have recorded effort greater than four hours?",
+      "reference_sql": "SELECT id FROM tickets WHERE hours > 4 ORDER BY id",
+      "expected": [
+        [
+          2
+        ],
+        [
+          5
+        ]
+      ]
+    },
+    {
+      "id": "busy_agents",
+      "category": "having",
+      "difficulty": "hard",
+      "question": "List agent names assigned at least three tickets and their ticket counts.",
+      "reference_sql": "SELECT a.name, COUNT(*) FROM agents a JOIN tickets t ON t.agent_id=a.id GROUP BY a.id HAVING COUNT(*)>=3",
+      "expected": [
+        [
+          "Asha",
+          3
+        ]
+      ]
+    },
+    {
+      "id": "largest_per_org",
+      "category": "window",
+      "difficulty": "hard",
+      "question": "For each organization with tickets, return its name and ticket ID with the greatest recorded effort.",
+      "reference_sql": "WITH ranked AS (SELECT organization_id,id,ROW_NUMBER() OVER(PARTITION BY organization_id ORDER BY hours DESC,id) AS n FROM tickets) SELECT o.name,r.id FROM ranked r JOIN organizations o ON o.id=r.organization_id WHERE r.n=1 ORDER BY o.name",
+      "expected": [
+        [
+          "Harbor",
+          3
+        ],
+        [
+          "Lyra",
+          5
+        ],
+        [
+          "Orion",
+          2
+        ]
+      ]
+    },
+    {
+      "id": "above_closed_average",
+      "category": "subqueries",
+      "difficulty": "hard",
+      "question": "List ticket IDs whose effort exceeds the average effort of closed tickets.",
+      "reference_sql": "SELECT id FROM tickets WHERE hours > (SELECT AVG(hours) FROM tickets WHERE status='closed') ORDER BY id",
+      "expected": [
+        [
+          2
+        ],
+        [
+          5
+        ],
+        [
+          7
+        ]
+      ]
+    }
+  ]
+}

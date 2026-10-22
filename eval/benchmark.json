@@ -1,0 +1,291 @@
+{
+  "version": "commerce-v1",
+  "description": "Original synthetic evaluation fixtures separate from public guided examples. Public gold answers; not a sealed external benchmark.",
+  "seed": [
+    "CREATE TABLE customers(id INTEGER PRIMARY KEY, name TEXT, region TEXT, email TEXT)",
+    "CREATE TABLE orders(id INTEGER PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), amount REAL, ordered_at TEXT, status TEXT)",
+    "CREATE TABLE refunds(id INTEGER PRIMARY KEY, order_id INTEGER REFERENCES orders(id), amount REAL)",
+    "INSERT INTO customers VALUES(1,'Asha','South','asha@example.test'),(2,'Kabir','North',NULL),(3,'Meera','South','meera@example.test'),(4,'Rohan','West',NULL),(5,'Tara','North','tara@example.test')",
+    "INSERT INTO orders VALUES(1,1,120,'2026-01-02','paid'),(2,1,80,'2026-02-01','paid'),(3,2,200,'2026-01-10','paid'),(4,3,50,'2026-02-04','cancelled'),(5,5,100,'2026-02-10','paid'),(6,2,40,'2026-03-01','paid')",
+    "INSERT INTO refunds VALUES(1,1,20),(2,3,50),(3,3,10)"
+  ],
+  "cases": [
+    {
+      "id": "count",
+      "difficulty": "easy",
+      "category": "aggregation",
+      "question": "How many customers are there?",
+      "reference_sql": "SELECT COUNT(*) FROM customers",
+      "expected": [
+        [
+          5
+        ]
+      ]
+    },
+    {
+      "id": "missing",
+      "difficulty": "easy",
+      "category": "nulls",
+      "question": "Which customers have no email? Return their names.",
+      "reference_sql": "SELECT name FROM customers WHERE email IS NULL",
+      "expected": [
+        [
+          "Kabir"
+        ],
+        [
+          "Rohan"
+        ]
+      ]
+    },
+    {
+      "id": "south",
+      "difficulty": "easy",
+      "category": "filter",
+      "question": "List customer names in the South region.",
+      "reference_sql": "SELECT name FROM customers WHERE region='South'",
+      "expected": [
+        [
+          "Asha"
+        ],
+        [
+          "Meera"
+        ]
+      ]
+    },
+    {
+      "id": "no_orders",
+      "difficulty": "medium",
+      "category": "joins",
+      "question": "Which customers have never ordered? Return names.",
+      "reference_sql": "SELECT c.name FROM customers c LEFT JOIN orders o ON c.id=o.customer_id WHERE o.id IS NULL",
+      "expected": [
+        [
+          "Rohan"
+        ]
+      ]
+    },
+    {
+      "id": "sum",
+      "difficulty": "easy",
+      "category": "aggregation",
+      "question": "What is the total order amount, including cancelled orders?",
+      "reference_sql": "SELECT SUM(amount) FROM orders",
+      "expected": [
+        [
+          590
+        ]
+      ]
+    },
+    {
+      "id": "region",
+      "difficulty": "medium",
+      "category": "joins",
+      "question": "Show each region with orders and its total order amount, including cancelled orders. Return region and total.",
+      "reference_sql": "SELECT c.region,SUM(o.amount) FROM customers c JOIN orders o ON c.id=o.customer_id GROUP BY c.region",
+      "expected": [
+        [
+          "South",
+          250
+        ],
+        [
+          "North",
+          340
+        ]
+      ]
+    },
+    {
+      "id": "months",
+      "difficulty": "medium",
+      "category": "dates",
+      "question": "Show year-month and total order amount for each month including cancelled orders.",
+      "reference_sql": "SELECT substr(ordered_at,1,7),SUM(amount) FROM orders GROUP BY substr(ordered_at,1,7)",
+      "expected": [
+        [
+          "2026-01",
+          320
+        ],
+        [
+          "2026-02",
+          230
+        ],
+        [
+          "2026-03",
+          40
+        ]
+      ]
+    },
+    {
+      "id": "large",
+      "difficulty": "easy",
+      "category": "filter",
+      "question": "Which orders have amounts strictly above 100? Return id and amount.",
+      "reference_sql": "SELECT id,amount FROM orders WHERE amount>100",
+      "expected": [
+        [
+          1,
+          120
+        ],
+        [
+          3,
+          200
+        ]
+      ]
+    },
+    {
+      "id": "paid",
+      "difficulty": "easy",
+      "category": "filter",
+      "question": "What is the total amount for paid orders?",
+      "reference_sql": "SELECT SUM(amount) FROM orders WHERE status='paid'",
+      "expected": [
+        [
+          540
+        ]
+      ]
+    },
+    {
+      "id": "having",
+      "difficulty": "medium",
+      "category": "aggregation",
+      "question": "Which customers have total order amounts above 150? Return name and total, including cancelled orders.",
+      "reference_sql": "SELECT c.name,SUM(o.amount) FROM customers c JOIN orders o ON c.id=o.customer_id GROUP BY c.id HAVING SUM(o.amount)>150",
+      "expected": [
+        [
+          "Asha",
+          200
+        ],
+        [
+          "Kabir",
+          240
+        ]
+      ]
+    },
+    {
+      "id": "not_refunded",
+      "difficulty": "hard",
+      "category": "subqueries",
+      "question": "List ids of orders with no refund records.",
+      "reference_sql": "SELECT id FROM orders WHERE NOT EXISTS (SELECT 1 FROM refunds WHERE refunds.order_id=orders.id)",
+      "expected": [
+        [
+          2
+        ],
+        [
+          4
+        ],
+        [
+          5
+        ],
+        [
+          6
+        ]
+      ]
+    },
+    {
+      "id": "refund_totals",
+      "difficulty": "medium",
+      "category": "aggregation",
+      "question": "Return order id and total refunds for each order that has refunds.",
+      "reference_sql": "SELECT order_id,SUM(amount) FROM refunds GROUP BY order_id",
+      "expected": [
+        [
+          1,
+          20
+        ],
+        [
+          3,
+          60
+        ]
+      ]
+    },
+    {
+      "id": "net",
+      "difficulty": "hard",
+      "category": "joins",
+      "question": "For every customer, return name and total order amounts minus refunds. Include cancelled orders and customers with no orders as zero.",
+      "reference_sql": "SELECT c.name,COALESCE(SUM(o.amount-COALESCE(r.refunded,0)),0) FROM customers c LEFT JOIN orders o ON c.id=o.customer_id LEFT JOIN (SELECT order_id,SUM(amount) AS refunded FROM refunds GROUP BY order_id) r ON r.order_id=o.id GROUP BY c.id",
+      "expected": [
+        [
+          "Asha",
+          180
+        ],
+        [
+          "Kabir",
+          180
+        ],
+        [
+          "Meera",
+          50
+        ],
+        [
+          "Rohan",
+          0
+        ],
+        [
+          "Tara",
+          100
+        ]
+      ]
+    },
+    {
+      "id": "repeat",
+      "difficulty": "medium",
+      "category": "aggregation",
+      "question": "List names of customers who placed more than one order.",
+      "reference_sql": "SELECT c.name FROM customers c JOIN orders o ON c.id=o.customer_id GROUP BY c.id HAVING COUNT(o.id)>1",
+      "expected": [
+        [
+          "Asha"
+        ],
+        [
+          "Kabir"
+        ]
+      ]
+    },
+    {
+      "id": "empty",
+      "difficulty": "easy",
+      "category": "filter",
+      "question": "List order ids with amounts above 5000.",
+      "reference_sql": "SELECT id FROM orders WHERE amount>5000",
+      "expected": []
+    },
+    {
+      "id": "top_region",
+      "difficulty": "hard",
+      "category": "subqueries",
+      "question": "Which region has the highest total order amount? Return only the region, including cancelled orders.",
+      "reference_sql": "SELECT c.region FROM customers c JOIN orders o ON c.id=o.customer_id GROUP BY c.region ORDER BY SUM(o.amount) DESC LIMIT 1",
+      "expected": [
+        [
+          "North"
+        ]
+      ]
+    },
+    {
+      "id": "feb",
+      "difficulty": "medium",
+      "category": "dates",
+      "question": "Return total amount of all orders placed in February 2026.",
+      "reference_sql": "SELECT SUM(amount) FROM orders WHERE ordered_at>='2026-02-01' AND ordered_at<'2026-03-01'",
+      "expected": [
+        [
+          230
+        ]
+      ]
+    },
+    {
+      "id": "march",
+      "difficulty": "hard",
+      "category": "joins",
+      "question": "Return customer name and order amount for orders in March 2026.",
+      "reference_sql": "SELECT c.name,o.amount FROM customers c JOIN orders o ON c.id=o.customer_id WHERE o.ordered_at>='2026-03-01' AND o.ordered_at<'2026-04-01'",
+      "expected": [
+        [
+          "Kabir",
+          40
+        ]
+      ]
+    }
+  ]
+}

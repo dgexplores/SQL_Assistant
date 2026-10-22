@@ -1,0 +1,324 @@
+{
+  "dataset": "commerce-v1",
+  "dataset_sha256": "4e5ab4d24d544ba64bebe30b481ebc666cb370d6e69b9d1b885b51e0795b4315",
+  "mode": "reference",
+  "created_at": "2026-10-21T22:08:27.633763+00:00",
+  "model": null,
+  "measures": "reference-SQL executor correctness; NOT model accuracy",
+  "limitations": "Original synthetic evaluation fixtures separate from public guided examples. Public gold answers; not a sealed external benchmark.",
+  "cases": [
+    {
+      "id": "count",
+      "category": "aggregation",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 2.51,
+      "actual": [
+        {
+          "COUNT(*)": 5
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "missing",
+      "category": "nulls",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 0.31,
+      "actual": [
+        {
+          "name": "Kabir"
+        },
+        {
+          "name": "Rohan"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "south",
+      "category": "filter",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 0.24,
+      "actual": [
+        {
+          "name": "Asha"
+        },
+        {
+          "name": "Meera"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "no_orders",
+      "category": "joins",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.41,
+      "actual": [
+        {
+          "name": "Rohan"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "sum",
+      "category": "aggregation",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 0.21,
+      "actual": [
+        {
+          "SUM(amount)": 590.0
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "region",
+      "category": "joins",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.45,
+      "actual": [
+        {
+          "region": "North",
+          "SUM(o.amount)": 340.0
+        },
+        {
+          "region": "South",
+          "SUM(o.amount)": 250.0
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "months",
+      "category": "dates",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.42,
+      "actual": [
+        {
+          "substr(ordered_at,1,7)": "2026-01",
+          "SUM(amount)": 320.0
+        },
+        {
+          "substr(ordered_at,1,7)": "2026-02",
+          "SUM(amount)": 230.0
+        },
+        {
+          "substr(ordered_at,1,7)": "2026-03",
+          "SUM(amount)": 40.0
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "large",
+      "category": "filter",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 0.28,
+      "actual": [
+        {
+          "id": 1,
+          "amount": 120.0
+        },
+        {
+          "id": 3,
+          "amount": 200.0
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "paid",
+      "category": "filter",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 0.25,
+      "actual": [
+        {
+          "SUM(amount)": 540.0
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "having",
+      "category": "aggregation",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.54,
+      "actual": [
+        {
+          "name": "Asha",
+          "SUM(o.amount)": 200.0
+        },
+        {
+          "name": "Kabir",
+          "SUM(o.amount)": 240.0
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "not_refunded",
+      "category": "subqueries",
+      "difficulty": "hard",
+      "passed": true,
+      "elapsed_ms": 0.37,
+      "actual": [
+        {
+          "id": 2
+        },
+        {
+          "id": 4
+        },
+        {
+          "id": 5
+        },
+        {
+          "id": 6
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "refund_totals",
+      "category": "aggregation",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.26,
+      "actual": [
+        {
+          "order_id": 1,
+          "SUM(amount)": 20.0
+        },
+        {
+          "order_id": 3,
+          "SUM(amount)": 60.0
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "net",
+      "category": "joins",
+      "difficulty": "hard",
+      "passed": true,
+      "elapsed_ms": 1.09,
+      "actual": [
+        {
+          "name": "Asha",
+          "COALESCE(SUM(o.amount-COALESCE(r.refunded,0)),0)": 180.0
+        },
+        {
+          "name": "Kabir",
+          "COALESCE(SUM(o.amount-COALESCE(r.refunded,0)),0)": 180.0
+        },
+        {
+          "name": "Meera",
+          "COALESCE(SUM(o.amount-COALESCE(r.refunded,0)),0)": 50.0
+        },
+        {
+          "name": "Rohan",
+          "COALESCE(SUM(o.amount-COALESCE(r.refunded,0)),0)": 0
+        },
+        {
+          "name": "Tara",
+          "COALESCE(SUM(o.amount-COALESCE(r.refunded,0)),0)": 100.0
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "repeat",
+      "category": "aggregation",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.48,
+      "actual": [
+        {
+          "name": "Asha"
+        },
+        {
+          "name": "Kabir"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "empty",
+      "category": "filter",
+      "difficulty": "easy",
+      "passed": true,
+      "elapsed_ms": 0.26,
+      "actual": [],
+      "error": null
+    },
+    {
+      "id": "top_region",
+      "category": "subqueries",
+      "difficulty": "hard",
+      "passed": true,
+      "elapsed_ms": 0.48,
+      "actual": [
+        {
+          "region": "North"
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "feb",
+      "category": "dates",
+      "difficulty": "medium",
+      "passed": true,
+      "elapsed_ms": 0.56,
+      "actual": [
+        {
+          "SUM(amount)": 230.0
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "march",
+      "category": "joins",
+      "difficulty": "hard",
+      "passed": true,
+      "elapsed_ms": 0.59,
+      "actual": [
+        {
+          "name": "Kabir",
+          "amount": 40.0
+        }
+      ],
+      "error": null
+    }
+  ],
+  "status": "completed",
+  "total": 18,
+  "passed": 18,
+  "by_difficulty": {
+    "easy": {
+      "total": 7,
+      "passed": 7
+    },
+    "medium": {
+      "total": 7,
+      "passed": 7
+    },
+    "hard": {
+      "total": 4,
+      "passed": 4
+    }
+  },
+  "accuracy": 1.0
+}

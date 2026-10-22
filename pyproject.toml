@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sql-assistant-safe"
+version = "0.1.0"
+description = "A read-only natural-language SQL assistant with deterministic query validation."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "dgexplores" }]
+dependencies = [
+    "sqlalchemy==2.0.52",
+    "sqlparse==0.6.0",
+    "openai==2.54.0",
+]
+
+[project.optional-dependencies]
+slack = ["slack-bolt==1.30.0"]
+dev = ["pytest"]
+web = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "httpx>=0.27,<1"]
+
+[tool.setuptools]
+py-modules = ["assistant", "slack_bot"]
